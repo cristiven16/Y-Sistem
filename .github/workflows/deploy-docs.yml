@@ -23,10 +23,15 @@ jobs:
         run: HUSKY=0 npm install
         working-directory: gestion-negocio-frontend
 
-      # 📌 Instalar dependencias de Docusaurus
+      # 📌 Instalar TODAS las dependencias de Docusaurus
       - name: Install Docusaurus Dependencies
-        run: npm install
-        working-directory: website  # ✅ Instala dependencias antes de compilar
+        run: npm install --include=dev
+        working-directory: website
+
+      # 📌 Asegurar que `prism-react-renderer` esté instalado
+      - name: Install missing dependencies
+        run: npm install prism-react-renderer
+        working-directory: website
 
       # 📌 Generar documentación del frontend
       - name: Generate Frontend Docs
@@ -36,7 +41,7 @@ jobs:
       # 📌 Construir Docusaurus
       - name: Build Docusaurus
         run: npm run build
-        working-directory: website  # ✅ Ahora debería encontrar "docusaurus"
+        working-directory: website
 
       # 📌 Desplegar en GitHub Pages
       - name: Deploy to GitHub Pages
