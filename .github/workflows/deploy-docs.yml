@@ -3,7 +3,7 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - main  # Cambia esto si tu rama principal se llama diferente
+      - main  # Cambia si tu rama principal es diferente
 
 jobs:
   build:
@@ -16,22 +16,23 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Usa la versión que tengas instalada localmente
+          node-version: 20  # Usa la versión correcta de Node.js
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --include=dev
 
       - name: Generate API Docs
-        run: curl -o docs/api.json http://localhost:8000/openapi.json || echo "API documentation unavailable"
+        run: curl -o docs/api.json https://TU_API_URL/openapi.json || echo "API documentation unavailable"
 
       - name: Generate Frontend Docs
-        run: npm run doc
+        run: npm run docs  # Corregido de "doc" a "docs"
 
       - name: Build Docusaurus
         run: npm run build
+        working-directory: website  # Si Docusaurus está en la carpeta "website"
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: build
+          folder: website/build  # Corregido el path de "build"
