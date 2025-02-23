@@ -22,6 +22,11 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm install
         working-directory: gestion-negocio-frontend  # ✅ Ubicación correcta
+      
+      - name: Install Frontend Dependencies
+        run: HUSKY=0 npm install
+        working-directory: gestion-negocio-frontend
+        
 
       # 📌 Generar documentación del frontend
       - name: Generate Frontend Docs
