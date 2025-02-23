@@ -3,7 +3,7 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - main  # Cambia si tu rama principal es diferente
+      - main  # Asegúrate de que el workflow se ejecute solo en la rama principal
 
 jobs:
   build:
@@ -16,25 +16,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Usa la versión correcta de Node.js
+          node-version: 20
 
-      - name: Install Dependencies
+      # 📌 Instalar dependencias del frontend en la carpeta correcta
+      - name: Install Frontend Dependencies
         run: npm install
-        working-directory: gestion-negocio-frontend  # 🚀 Se asegura de instalar en el directorio correcto
+        working-directory: gestion-negocio-frontend  # ✅ Ubicación correcta
 
-      - name: Generate API Docs
-        run: curl -o docs/api.json https://TU_API_URL/openapi.json || echo "API documentation unavailable"
-
+      # 📌 Generar documentación del frontend
       - name: Generate Frontend Docs
         run: npm run docs
-        working-directory: gestion-negocio-frontend  # 🚀 Se ejecuta en la carpeta correcta
+        working-directory: gestion-negocio-frontend  # ✅ Ejecutar en la carpeta correcta
 
+      # 📌 Construir Docusaurus (si la documentación está en la carpeta "website")
       - name: Build Docusaurus
         run: npm run build
-        working-directory: website  # 🚀 Si Docusaurus está en la carpeta "website"
+        working-directory: website  # ✅ Ajusta si Docusaurus está en otra carpeta
 
+      # 📌 Desplegar en GitHub Pages
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: website/build  # 🚀 Se asegura de tomar la carpeta correcta para el deploy
+          folder: website/build  # ✅ Asegurar que la documentación esté en la carpeta correcta
