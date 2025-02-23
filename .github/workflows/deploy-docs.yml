@@ -19,20 +19,22 @@ jobs:
           node-version: 20  # Usa la versión correcta de Node.js
 
       - name: Install Dependencies
-        run: npm install --include=dev
+        run: npm install
+        working-directory: gestion-negocio-frontend  # 🚀 Se asegura de instalar en el directorio correcto
 
       - name: Generate API Docs
         run: curl -o docs/api.json https://TU_API_URL/openapi.json || echo "API documentation unavailable"
 
       - name: Generate Frontend Docs
-        run: npm run docs  # Corregido de "doc" a "docs"
+        run: npm run docs
+        working-directory: gestion-negocio-frontend  # 🚀 Se ejecuta en la carpeta correcta
 
       - name: Build Docusaurus
         run: npm run build
-        working-directory: website  # Si Docusaurus está en la carpeta "website"
+        working-directory: website  # 🚀 Si Docusaurus está en la carpeta "website"
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: website/build  # Corregido el path de "build"
+          folder: website/build  # 🚀 Se asegura de tomar la carpeta correcta para el deploy
