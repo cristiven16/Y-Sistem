@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaEllipsisV, FaEdit, FaTrash, FaInfoCircle } from "react-icons/fa";
-import ConfirmModal from "../../components/ConfirmModal";
 import Modal from "react-modal";
 import { toast } from "react-toastify";
 

@@ -1,8 +1,10 @@
 {
-    "entryPoints": ["src"],
-    "out": "docs/frontend",
-    "excludePrivate": true,
-    "excludeProtected": true,
-    "excludeExternals": true
-  }
-  
+  "entryPointStrategy": "expand",
+  "entryPoints": ["src"],
+  "out": "docs/frontend",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"],
+  "gitRemote": "https://github.com/cristiven16/Y-Sistem.git"
+}

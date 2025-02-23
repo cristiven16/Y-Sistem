@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "jest --watchAll",
     "prepare": "husky install",
-    "doc": "typedoc"
+    "docs": "typedoc --out docs src"
   },
   "dependencies": {
     "axios": "^1.7.9",
