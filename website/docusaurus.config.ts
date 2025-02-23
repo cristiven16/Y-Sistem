@@ -32,8 +32,11 @@ const config = {
         { href: "https://github.com/cristiven16/Y-Sistem.git", label: "GitHub", position: "right" },
       ],
     },
+    prism: {
+      theme: lightCodeTheme,
+      darkTheme: darkCodeTheme,
+    },
   },
-  
 
   presets: [
     [
@@ -41,8 +44,7 @@ const config = {
       {
         docs: {
           sidebarPath: require.resolve("./sidebars.ts"),
-          editUrl:
-            "https://github.com/TU_USUARIO/NOMBRE_DEL_REPOSITORIO/edit/main/website/",
+          editUrl: "https://github.com/cristiven16/Y-Sistem.git",
         },
         blog: {
           showReadingTime: true,
