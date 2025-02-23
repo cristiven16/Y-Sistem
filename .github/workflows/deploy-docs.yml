@@ -3,7 +3,7 @@ name: Deploy Documentation
 on:
   push:
     branches:
-      - main  # Asegúrate de que el workflow se ejecute solo en la rama principal
+      - main
 
 jobs:
   build:
@@ -18,29 +18,29 @@ jobs:
         with:
           node-version: 20
 
-      # 📌 Instalar dependencias del frontend en la carpeta correcta
-      - name: Install Frontend Dependencies
-        run: npm install
-        working-directory: gestion-negocio-frontend  # ✅ Ubicación correcta
-      
+      # 📌 Instalar dependencias del frontend
       - name: Install Frontend Dependencies
         run: HUSKY=0 npm install
         working-directory: gestion-negocio-frontend
-        
+
+      # 📌 Instalar dependencias de Docusaurus
+      - name: Install Docusaurus Dependencies
+        run: npm install
+        working-directory: website  # ✅ Instala dependencias antes de compilar
 
       # 📌 Generar documentación del frontend
       - name: Generate Frontend Docs
         run: npm run docs
-        working-directory: gestion-negocio-frontend  # ✅ Ejecutar en la carpeta correcta
+        working-directory: gestion-negocio-frontend
 
-      # 📌 Construir Docusaurus (si la documentación está en la carpeta "website")
+      # 📌 Construir Docusaurus
       - name: Build Docusaurus
         run: npm run build
-        working-directory: website  # ✅ Ajusta si Docusaurus está en otra carpeta
+        working-directory: website  # ✅ Ahora debería encontrar "docusaurus"
 
       # 📌 Desplegar en GitHub Pages
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: website/build  # ✅ Asegurar que la documentación esté en la carpeta correcta
+          folder: website/build
