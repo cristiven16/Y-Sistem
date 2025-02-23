@@ -5,7 +5,7 @@ from models.clientes import Cliente
 from pydantic_core.core_schema import ValidationInfo
 
 class ClienteSchema(BaseModel):
-    id: int  # Se añade el ID en la respuesta
+    id: Optional[int] = None  # ✅ Hacer opcional el ID al crear un cliente
     tipo_documento_id: int
     numero_documento: str = Field(..., min_length=3, max_length=20)
     nombre_razon_social: str = Field(..., min_length=3)
