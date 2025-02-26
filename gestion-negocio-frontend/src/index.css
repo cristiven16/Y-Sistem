@@ -16,7 +16,7 @@ a:hover {
   @apply text-blue-800;
 }
 
-/* 🔹 Botones */
+/* 🔹 Botones (global) */
 button {
   @apply rounded-lg border border-transparent px-4 py-2 text-white font-medium transition duration-200;
 }
@@ -96,21 +96,37 @@ button:focus-visible {
   @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700;
 }
 
-/* 🔹 Paginación */
+/* 
+  ─────────────────────────────────────────────
+  🔹 Paginación
+  Para un estilo global de tus botones de paginación.
+  ─────────────────────────────────────────────
+*/
 .pagination {
   @apply flex justify-center items-center gap-2 mt-4;
 }
 
+/* Botón "común" de página */
 .page-btn {
-  @apply bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300 transition;
+  @apply px-3 py-1 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 transition;
 }
 
+/* Botón activo (página actual) */
 .page-btn-active {
-  @apply bg-blue-600 text-white;
+  @apply bg-blue-600 border-blue-600 text-white;
+}
+
+/* Si deseas inhabilitar los botones al llegar a primera/última página */
+.page-btn-disabled {
+  @apply cursor-not-allowed opacity-50;
 }
 
 /* 🔹 Modal de confirmación */
 .modal {
+  @apply fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50;
+}
+
+.modal-overlay {
   @apply fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50;
 }
 
@@ -133,4 +149,11 @@ button:focus-visible {
 
 .label {
   @apply block text-gray-700 font-medium mb-1;
+}
+
+/* 🔹 Formulario Clientes */
+.modal-content-client {
+  @apply relative; /* Para posicionar el botón X */
+  max-height: 80vh; /* 80% del alto de la ventana */
+  overflow-y: auto; /* Desplazamiento vertical */
 }

@@ -6,6 +6,7 @@ class TipoDocumento(Base):
     __tablename__ = "tipo_documento"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     nombre = Column(String, unique=True, nullable=False)
+    abreviatura = Column(String, unique=True, nullable=False)
 
 # 📌 Régimen Tributario
 class RegimenTributario(Base):
