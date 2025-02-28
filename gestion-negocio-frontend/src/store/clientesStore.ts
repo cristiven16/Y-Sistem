@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getClientes } from "../pages/Clientes/clientesAPI";
+import { getClientes } from "../api/clientesAPI";
 import { Cliente } from "../pages/Clientes/clientesTypes";
 
 interface ClientesState {

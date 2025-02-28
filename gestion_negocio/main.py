@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routes import auth, clientes, productos, ventas, tesoreria, cuentas_wallet, chats, catalogos, ubicaciones
+from routes import auth, clientes, empleados, proveedores, productos, ventas, tesoreria, cuentas_wallet, chats, catalogos, ubicaciones
 
 # Crear la base de datos y las tablas (si no existen)
 Base.metadata.create_all(bind=engine)
@@ -21,6 +21,8 @@ app.add_middleware(
 # Incluir Rutas
 app.include_router(auth.router)
 app.include_router(clientes.router)
+app.include_router(proveedores.router)
+app.include_router(empleados.router)
 app.include_router(productos.router)
 app.include_router(ventas.router)
 app.include_router(tesoreria.router)

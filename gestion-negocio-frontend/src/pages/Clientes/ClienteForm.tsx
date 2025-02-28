@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 // APIs de Clientes y Catálogos
 import {
   crearCliente,
-  actualizarCliente, // <-- NUEVO: asegúrate de crearlo en clientesAPI
+  actualizarCliente,
   obtenerTiposDocumento,
   obtenerRegimenesTributarios,
   obtenerTiposPersona,
@@ -13,36 +13,37 @@ import {
   obtenerTarifasPrecios,
   obtenerFormasPago,
   obtenerSucursales,
-  obtenerVendedores,
   obtenerActividadesEconomicas,
   obtenerRetenciones,
   obtenerTiposMarketing,
-} from "./clientesAPI";
+} from "../../api/clientesAPI";
 
-// APIs de ubicaciones (para departamentos y ciudades)
-import { obtenerDepartamentos, obtenerCiudades } from "./ubicacionesAPI";
+// APIs de ubicaciones (departamentos, ciudades)
+import { obtenerDepartamentos, obtenerCiudades } from "../../api/ubicacionesAPI";
 
-// Tipos de datos
+// API Empleados: filtrar es_vendedor=true
+import { obtenerEmpleadosVendedores } from "../../api/empleadosAPI";
+
+// Tipos
 import {
   ClientePayload,
   TipoDocumento,
   Departamento,
   Ciudad,
-  Cliente // <--- si definiste la interfaz 'Cliente' también
+  Cliente,
 } from "./clientesTypes";
 
 Modal.setAppElement("#root");
 
-// Función para capitalizar (opcional)
 function capitalizeWords(str: string): string {
   return str
     .toLowerCase()
     .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
-// Estado inicial del formulario (usa subobjetos)
+// ❗ Aquí quitamos 'vendedor_id: 1' de initialFormData
 const initialFormData: ClientePayload = {
   tipo_documento: undefined,
   numero_documento: "",
@@ -67,7 +68,7 @@ const initialFormData: ClientePayload = {
   descuento: 0,
   cupo_credito: 0,
   sucursal_id: 1,
-  vendedor_id: 1,
+  vendedor_id: null, // <-- en vez de 1, usar null (o undefined)
   pagina_web: "",
   actividad_economica_id: undefined,
   retencion_id: undefined,
@@ -77,13 +78,9 @@ const initialFormData: ClientePayload = {
 };
 
 interface ClienteFormProps {
-  /** Si true, muestra el modal. */
   isOpen: boolean;
-  /** Cerrar el modal. */
   onClose: () => void;
-  /** Acción a ejecutar cuando se complete con éxito la creación/edición. */
   onSuccess: () => void;
-  /** Si existe, estamos editando un cliente; si no, creando. */
   cliente?: Cliente | null;
 }
 
@@ -91,11 +88,9 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  cliente, // si es nulo/undefined => modo creación
+  cliente,
 }) => {
-  // ─────────────────────────────────────────────────────
-  // 1. Estados de Catálogos
-  // ─────────────────────────────────────────────────────
+  // Catálogos
   const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([]);
   const [regimenes, setRegimenes] = useState<any[]>([]);
   const [tiposPersona, setTiposPersona] = useState<any[]>([]);
@@ -108,40 +103,36 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
   const [retenciones, setRetenciones] = useState<any[]>([]);
   const [tiposMarketing, setTiposMarketing] = useState<any[]>([]);
 
-  // ─────────────────────────────────────────────────────
-  // 2. Estados de Ubicaciones
-  // ─────────────────────────────────────────────────────
+  // Ubicaciones
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [departamentosCargados, setDepartamentosCargados] = useState(false);
 
-  // ─────────────────────────────────────────────────────
-  // 3. Estado del Form
-  // ─────────────────────────────────────────────────────
+  // Form
   const [formData, setFormData] = useState<ClientePayload>(initialFormData);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // ─────────────────────────────────────────────────────
-  // 4. useEffect al abrir modal
-  // ─────────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
       cargarCatalogos();
+
       if (cliente) {
-        // MODO EDICIÓN: Convertimos 'cliente' en 'ClientePayload'
-        // Ejemplo:
+        // Modo edición
         setFormData({
           tipo_documento: cliente.tipo_documento,
           numero_documento: cliente.numero_documento,
           nombre_razon_social: cliente.nombre_razon_social,
           email: cliente.email || null,
+
           departamento: cliente.departamento,
           ciudad: cliente.ciudad,
           direccion: cliente.direccion,
+
           telefono1: cliente.telefono1 || "",
           telefono2: cliente.telefono2 || "",
           celular: cliente.celular || "",
           whatsapp: cliente.whatsapp || "",
+
           tipos_persona_id: cliente.tipos_persona_id,
           regimen_tributario_id: cliente.regimen_tributario_id,
           moneda_principal_id: cliente.moneda_principal_id,
@@ -151,7 +142,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           descuento: cliente.descuento || 0,
           cupo_credito: cliente.cupo_credito || 0,
           sucursal_id: cliente.sucursal_id,
-          vendedor_id: cliente.vendedor_id,
+          vendedor_id: cliente.vendedor_id ?? null, // si no tiene, pon null
           pagina_web: cliente.pagina_web || "",
           actividad_economica_id: cliente.actividad_economica_id,
           retencion_id: cliente.retencion_id,
@@ -160,15 +151,12 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           observacion: cliente.observacion || "",
         });
       } else {
-        // MODO CREAR
+        // Modo creación
         setFormData(initialFormData);
       }
     }
   }, [isOpen, cliente]);
 
-  // ─────────────────────────────────────────────────────
-  // 5. Cargar catálogos
-  // ─────────────────────────────────────────────────────
   const cargarCatalogos = async () => {
     try {
       const [
@@ -179,7 +167,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         tfRes,
         fpRes,
         sucRes,
-        vendRes,
         actEcoRes,
         retRes,
         tmRes,
@@ -191,11 +178,11 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         obtenerTarifasPrecios(),
         obtenerFormasPago(),
         obtenerSucursales(),
-        obtenerVendedores(),
         obtenerActividadesEconomicas(),
         obtenerRetenciones(),
         obtenerTiposMarketing(),
       ]);
+
       setTiposDocumento(tdRes);
       setRegimenes(regRes);
       setTiposPersona(tpRes);
@@ -203,19 +190,19 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       setTarifas(tfRes);
       setFormasPago(fpRes);
       setSucursales(sucRes);
-      setVendedores(vendRes);
       setActividadesEco(actEcoRes);
       setRetenciones(retRes);
       setTiposMarketing(tmRes);
+
+      // Empleados vendedores
+      const vendedoresEmpleados = await obtenerEmpleadosVendedores();
+      setVendedores(vendedoresEmpleados);
     } catch (error) {
       console.error("Error al cargar catálogos:", error);
       toast.error("No se pudieron cargar algunos catálogos.");
     }
   };
 
-  // ─────────────────────────────────────────────────────
-  // 6. Lazy load de departamentos
-  // ─────────────────────────────────────────────────────
   const handleFocusDepartamento = async () => {
     if (!departamentosCargados) {
       try {
@@ -228,9 +215,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
   };
 
-  // ─────────────────────────────────────────────────────
-  // 7. Cargar ciudades al cambiar departamento
-  // ─────────────────────────────────────────────────────
   useEffect(() => {
     if (formData.departamento?.id) {
       cargarCiudades(formData.departamento.id);
@@ -249,27 +233,41 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
   };
 
-  // ─────────────────────────────────────────────────────
-  // 8. Manejo de cambios en formulario
-  // ─────────────────────────────────────────────────────
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, checked } = e.target;
 
-    // Si es un campo para dígitos enteros, filtra así:
-  if (["numero_documento","telefono1", "telefono2", "celular", "whatsapp"].includes(name)) {
-    // Remueve todo lo que no sea dígito
-    const soloDigitos = value.replace(/\D/g, "");
-    setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
-    return;
-  }
+    if (name === "vendedor_id") {
+      // Si no eligen, guardamos null
+      setFormData((prev) => ({
+        ...prev,
+        vendedor_id: value === "" ? null : Number(value),
+      }));
+      return;
+    }
+
+    // Filtrar dígitos
+    if (
+      ["numero_documento", "telefono1", "telefono2", "celular", "whatsapp"].includes(
+        name
+      )
+    ) {
+      const soloDigitos = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
+      return;
+    }
+
     // Checkbox
     if (name === "permitir_venta") {
       setFormData((prev) => ({ ...prev, permitir_venta: checked }));
+      return;
     }
-    // Number fields
-    else if (
+
+    // Campos numéricos
+    if (
       [
         "tipos_persona_id",
         "regimen_tributario_id",
@@ -277,7 +275,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         "tarifa_precios_id",
         "forma_pago_id",
         "sucursal_id",
-        "vendedor_id",
         "actividad_economica_id",
         "retencion_id",
         "tipo_marketing_id",
@@ -288,62 +285,45 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         ...prev,
         [name]: value === "" ? undefined : Number(value),
       }));
+      return;
     }
+
     // Email => permitir null
-    else if (name === "email") {
+    if (name === "email") {
       setFormData((prev) => ({
         ...prev,
         email: value.trim() === "" ? null : value,
       }));
+      return;
     }
-    // Strings
-    else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ─────────────────────────────────────────────────────
-  // 9. Manejo de selects para subobjetos
-  // ─────────────────────────────────────────────────────
   const handleTipoDocumentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const found = tiposDocumento.find((td) => td.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      tipo_documento: found,
-    }));
+    setFormData((prev) => ({ ...prev, tipo_documento: found }));
   };
 
-  const handleDepartamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleDepartamentoChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const selectedId = Number(e.target.value);
     const dep = departamentos.find((d) => d.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      departamento: dep,
-      ciudad: undefined, // reset
-    }));
+    setFormData((prev) => ({ ...prev, departamento: dep, ciudad: undefined }));
   };
 
   const handleCiudadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const c = ciudades.find((ci) => ci.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      ciudad: c,
-    }));
+    setFormData((prev) => ({ ...prev, ciudad: c }));
   };
 
-  // ─────────────────────────────────────────────────────
-  // 10. Subida de formulario: Distinción CREAR vs EDITAR
-  // ─────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Enviando payload:", formData);
 
-    // Validaciones mínimas
     if (!formData.numero_documento || !formData.nombre_razon_social) {
       toast.error("Documento y Nombre son obligatorios.");
       return;
@@ -369,13 +349,10 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
 
     try {
-      // ¿Modo edición o creación?
       if (cliente && cliente.id) {
-        // PUT /clientes/{id}
         await actualizarCliente(cliente.id, formData);
         toast.success("Cliente actualizado con éxito.");
       } else {
-        // POST /clientes
         await crearCliente(formData);
         toast.success("Cliente creado con éxito.");
       }
@@ -393,7 +370,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
   };
 
-  // Si no está abierto, no renderiza nada
   if (!isOpen) return null;
 
   return (
@@ -406,7 +382,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       shouldCloseOnOverlayClick={false}
       shouldCloseOnEsc={false}
     >
-      {/* Botón X para cerrar */}
       <button
         onClick={onClose}
         className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
@@ -419,7 +394,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       </h2>
 
       <form onSubmit={handleSubmit}>
-        {/* Fila 1: Tipo Doc, Num Doc, Nombre */}
+        {/* Fila 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="tipo_documento">
@@ -471,7 +446,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 2: email, departamento, ciudad */}
+        {/* Fila 2 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="email">
@@ -526,7 +501,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 3: dirección, tel1, tel2 */}
+        {/* Fila 3 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="direccion">
@@ -570,7 +545,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 4: Celular, WhatsApp */}
+        {/* Fila 4 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="celular">
@@ -601,7 +576,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           <div className="hidden lg:block" />
         </div>
 
-        {/* Botón para campos avanzados */}
         <div className="mb-3">
           <button
             type="button"
@@ -615,7 +589,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
         {showAdvanced && (
           <div className="border p-3 rounded-lg mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Tipo de Persona */}
+              {/* Tipo Persona */}
               <div>
                 <label className="label" htmlFor="tipos_persona_id">
                   Tipo de Persona
@@ -675,7 +649,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </select>
               </div>
 
-              {/* Tarifa de Precios */}
+              {/* Tarifa Precios */}
               <div>
                 <label className="label" htmlFor="tarifa_precios_id">
                   Tarifa de Precios
@@ -695,7 +669,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </select>
               </div>
 
-              {/* Forma de Pago */}
+              {/* FormaPago */}
               <div>
                 <label className="label" htmlFor="forma_pago_id">
                   Forma de Pago
@@ -757,7 +731,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </select>
               </div>
 
-              {/* Tipo de Marketing */}
+              {/* Tipo Marketing */}
               <div>
                 <label className="label" htmlFor="tipo_marketing_id">
                   Tipo de Marketing
@@ -821,13 +795,14 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 <select
                   id="vendedor_id"
                   name="vendedor_id"
-                  value={formData.vendedor_id}
+                  value={formData.vendedor_id ?? ""}
                   onChange={handleChange}
                   className="input-field"
                 >
-                  {vendedores.map((v) => (
+                  <option value="">-- Sin asignar --</option>
+                  {vendedores.map((v: any) => (
                     <option key={v.id} value={v.id}>
-                      {v.nombre}
+                      {v.nombre_razon_social || v.nombre}
                     </option>
                   ))}
                 </select>
@@ -894,7 +869,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </label>
               </div>
 
-              {/* Observación */}
+              {/* Observacion */}
               <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                 <label className="label" htmlFor="observacion">
                   Observación
@@ -912,19 +887,11 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           </div>
         )}
 
-        {/* Botones finales */}
         <div className="modal-actions flex justify-end gap-3">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-          >
+          <button type="button" className="btn-secondary" onClick={onClose}>
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="btn-primary bg-blue-600"
-          >
+          <button type="submit" className="btn-primary bg-blue-600">
             Guardar
           </button>
         </div>

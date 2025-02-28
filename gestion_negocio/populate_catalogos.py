@@ -7,7 +7,9 @@ from models.catalogos import (
 # Crear una sesión de base de datos
 db = SessionLocal()
 
-# 📌 Insertar tipos de identificación (Documentos) con abreviación en el mismo campo "nombre"
+# -- 1. Insertar tipos de identificación (Documentos) --
+# Queremos que en la columna "nombre" se guarde "Nombre (Abreviatura)"
+# y en la columna "abreviatura" se guarde solo la abreviatura.
 tipos_documento = [
     ("Número de Identificación Tributaria CO", "NIT"),
     ("Cédula de ciudadanía", "CC"),
@@ -22,25 +24,31 @@ tipos_documento = [
     ("Registro Único de Información Fiscal", "RIF"),
     ("Identificación tributaria de otro país", "NE"),
 ]
-db.bulk_save_objects([TipoDocumento(nombre=f"{nombre} ({abrev})") for nombre, abrev in tipos_documento])
+db.bulk_save_objects([
+    TipoDocumento(
+        nombre=f"{nombre} ({abreviatura})",  # Ej: "Pasaporte (PSPT)"
+        abreviatura=abreviatura             # Ej: "PSPT"
+    )
+    for nombre, abreviatura in tipos_documento
+])
 
-# 📌 Insertar régimen tributario con predeterminado "No Responsable de IVA"
+# -- 2. Insertar régimen tributario (ejemplo) --
 regimenes_tributarios = [
     "Régimen simplificado",
     "Régimen común",
     "Régimen simple",
     "Responsable del IVA",
-    "No responsable del IVA",  # Este será el predeterminado
+    "No responsable del IVA",  # predeterminado
     "Régimen especial",
     "Régimen ordinario",
     "Gran contribuyente"
 ]
 db.bulk_save_objects([RegimenTributario(nombre=r) for r in regimenes_tributarios])
 
-# 📌 Insertar formas de pago con predeterminado "Contado"
+# -- 3. Insertar formas de pago (ejemplo) --
 formas_pago = [
+    "Contado",  # predeterminado
     "Contado a 1 día",
-    "Contado",  # Predeterminado
     "Crédito 7 días",
     "Crédito 15 días",
     "Crédito 30 días",
@@ -49,32 +57,32 @@ formas_pago = [
 ]
 db.bulk_save_objects([FormaPago(nombre=f) for f in formas_pago])
 
-# 📌 Insertar monedas con predeterminado "COP"
+# -- 4. Insertar monedas (ejemplo) --
 monedas = [
-    ("COP", "Peso Colombiano"),  # Predeterminado
+    ("COP", "Peso Colombiano"),  # predeterminado
     ("USD", "Dólar Americano"),
     ("EUR", "Euro")
 ]
 db.bulk_save_objects([Moneda(codigo=c, nombre=n) for c, n in monedas])
 
-# 📌 Insertar tipos de cliente con predeterminado "Común"
-tipos_cliente = [
-    "Común",  # Predeterminado
-    "Mayorista",
-    "VIP",
-    "Fiel"
+# -- 5. Insertar tipos de persona (ejemplo) --
+# (Anteriormente se usaba una variable "tipos_cliente" que no existía; 
+#  corrijo para usar la lista "tipos_persona").
+tipos_persona = [
+    "Persona Natural",  # predeterminado
+    "Persona Jurídica"
 ]
-db.bulk_save_objects([TipoPersona(nombre=t) for t in tipos_cliente])
+db.bulk_save_objects([TipoPersona(nombre=t) for t in tipos_persona])
 
-# 📌 Insertar tarifas de precios con predeterminado "Tarifa normal"
+# -- 6. Insertar tarifas de precios (ejemplo) --
 tarifas_precios = [
-    "Tarifa normal",  # Predeterminado
+    "Tarifa normal",  # predeterminado
     "Por Mayor",
     "Especial" 
 ]
-db.bulk_save_objects([TarifaPrecios(nombre=t) for t in tarifas_precios])  # <- Se usa "TarifaPrecios"
+db.bulk_save_objects([TarifaPrecios(nombre=t) for t in tarifas_precios])
 
-# 📌 Insertar tipos de marketing
+# -- 7. Insertar tipos de marketing (ejemplo) --
 tipos_marketing = ["Facebook", "Recomendación", "Televisión", "Radio"]
 db.bulk_save_objects([TipoMarketing(nombre=t) for t in tipos_marketing])
 

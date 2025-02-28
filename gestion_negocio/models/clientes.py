@@ -31,7 +31,7 @@ class Cliente(Base):
     tipo_marketing_id = Column(Integer, ForeignKey("tipos_marketing.id"), nullable=True)
     sucursal_id = Column(Integer, ForeignKey("sucursal.id"), nullable=False)
     ruta_logistica_id = Column(Integer, ForeignKey("rutas_logisticas.id"), nullable=True)
-    vendedor_id = Column(Integer, ForeignKey("vendedor.id"), nullable=True)
+    vendedor_id = Column(Integer, ForeignKey("empleados.id"), nullable=True)
     observacion = Column(String(255), nullable=True)
 
     # Relaciones con otras tablas
@@ -48,4 +48,4 @@ class Cliente(Base):
     tipo_marketing = relationship("TipoMarketing")
     sucursal = relationship("Sucursal")
     ruta_logistica = relationship("RutaLogistica")
-    vendedor = relationship("Vendedor")
+    vendedor = relationship("Empleado")

@@ -3,32 +3,8 @@ from typing import Optional, List
 from database import get_db
 from models.clientes import Cliente
 from pydantic_core.core_schema import ValidationInfo
+from .common_schemas import (TipoDocumentoSchema, DepartamentoSchema, CiudadSchema)
 
-# ───────────────────────────────────────────────────────────
-# 🔹 ESQUEMA PARA EL TIPO DE DOCUMENTO
-# ───────────────────────────────────────────────────────────
-class TipoDocumentoSchema(BaseModel):
-    id: int
-    nombre: str
-    abreviatura: str
-
-    class Config:
-        from_attributes = True
-
-# ───────────────────────────────────────────────────────────
-# Schemas de Departamento y Ciudad
-# ───────────────────────────────────────────────────────────
-class DepartamentoSchema(BaseModel):
-    id: int
-    nombre: str
-    class Config:
-        from_attributes = True
-
-class CiudadSchema(BaseModel):
-    id: int
-    nombre: str
-    class Config:
-        from_attributes = True
 
 # ───────────────────────────────────────────────────────────
 # 🔹 ESQUEMA BÁSICO DEL CLIENTE (Para crear / actualizar)
@@ -58,7 +34,7 @@ class ClienteSchema(BaseModel):
     descuento: Optional[float] = 0.0
     cupo_credito: Optional[float] = 0.0
     sucursal_id: int = 1
-    vendedor_id: int = 1
+    vendedor_id: Optional[int] = None
 
     pagina_web: Optional[str] = None
     actividad_economica_id: Optional[int] = None

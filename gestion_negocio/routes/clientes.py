@@ -46,6 +46,7 @@ def crear_cliente(cliente: ClienteSchema, db: Session = Depends(get_db)):
     tipo_documento_id = cliente.tipo_documento.id if cliente.tipo_documento else None
     departamento_id = cliente.departamento.id if cliente.departamento else None
     ciudad_id = cliente.ciudad.id if cliente.ciudad else None
+    
 
     # 5) Crear el objeto de BD con las FK
     nuevo_cliente = Cliente(
@@ -191,6 +192,10 @@ def actualizar_cliente(
     tipo_documento_id = cliente_actualizado.tipo_documento.id if cliente_actualizado.tipo_documento else None
     departamento_id = cliente_actualizado.departamento.id if cliente_actualizado.departamento else None
     ciudad_id = cliente_actualizado.ciudad.id if cliente_actualizado.ciudad else None
+    # 1) Extraer lo que venga del schema
+    vendedor_id = cliente_actualizado.vendedor_id  # None o un int
+    # 2) Asignarlo si corresponde
+    cliente_db.vendedor_id = vendedor_id
 
     # Exclude fields that don't match the DB columns
     data_dict = cliente_actualizado.dict(exclude_unset=True)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { obtenerTiposDocumento, obtenerRegimenesTributarios, obtenerTiposPersona } from "./clientesAPI";
+import { obtenerTiposDocumento, obtenerRegimenesTributarios, obtenerTiposPersona } from "../../api/clientesAPI";
 
 export const useCatalogosClientes = () => {
     const [tiposDocumento, setTiposDocumento] = useState<string[]>([]);

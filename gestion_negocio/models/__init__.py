@@ -1,3 +1,7 @@
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
 from .usuarios import Usuario, Rol
 from .catalogos import TipoDocumento, RegimenTributario, TipoPersona, Moneda, TarifaPrecios, ActividadEconomica, FormaPago, Retencion, TipoMarketing, Sucursal, RutaLogistica, Vendedor
 from .productos import Producto
@@ -8,3 +12,5 @@ from .clientes import Cliente
 from .cuentas_wallet import CuentaWallet
 from .chats import Chat
 from .ubicaciones import Departamento, Ciudad
+from .proveedores import Proveedor
+from .empleados import Empleado

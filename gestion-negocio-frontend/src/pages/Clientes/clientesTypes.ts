@@ -56,7 +56,7 @@ export interface Cliente {
     descuento?: number;
     cupo_credito?: number;
     sucursal_id: number;
-    vendedor_id: number;
+    vendedor_id: null;
   
     // Opcionales
     pagina_web?: string;
