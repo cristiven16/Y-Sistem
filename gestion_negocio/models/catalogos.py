@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Numeric
-from database import Base
+from . import Base
 
 # 📌 Tipo de Documento
 class TipoDocumento(Base):
@@ -57,21 +57,10 @@ class TipoMarketing(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
 
-# 📌 Sucursal
-class Sucursal(Base):
-    __tablename__ = "sucursal"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    nombre = Column(String, unique=True, nullable=False)
-
 # 📌 Ruta Logística
 class RutaLogistica(Base):
     __tablename__ = "rutas_logisticas"
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
 
-# 📌 Vendedor
-class Vendedor(Base):
-    __tablename__ = "vendedor"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    nombre = Column(String, nullable=False)
-    identificacion = Column(String, unique=True, nullable=False)
+

@@ -1,10 +1,34 @@
+# gestion_negocio/main.py
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
-from routes import auth, clientes, empleados, proveedores, productos, ventas, tesoreria, cuentas_wallet, chats, catalogos, ubicaciones
 
-# Crear la base de datos y las tablas (si no existen)
-Base.metadata.create_all(bind=engine)
+# Importar la sesión y el engine de la BD
+from database import engine, get_db
+
+# Importar tus modelos para que se registren en Base.metadata
+import models
+
+# Importar los routers
+from routes import (
+    auth,
+    users,
+    organizations,
+    roles,
+    clientes,
+    empleados,
+    proveedores,
+    productos,
+    ventas,
+    tesoreria,
+    cuentas_wallet,
+    chats,
+    catalogos,
+    ubicaciones
+)
+
+# OJO: Se quita la llamada a Base.metadata.create_all(bind=engine)
+# porque alembic se encarga de manejar las migraciones y crear/modificar tablas.
 
 # Inicializar FastAPI
 app = FastAPI(title="API de Gestión Empresarial", version="1.0")
@@ -20,6 +44,9 @@ app.add_middleware(
 
 # Incluir Rutas
 app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(organizations.router)
+app.include_router(roles.router)
 app.include_router(clientes.router)
 app.include_router(proveedores.router)
 app.include_router(empleados.router)

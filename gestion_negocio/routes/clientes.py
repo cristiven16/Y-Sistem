@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
@@ -6,56 +6,58 @@ from database import get_db
 from schemas.clientes import (
     ClienteSchema,
     ClienteResponseSchema,
-    PaginatedClientes  # <-- Nuevo schema
+    PaginatedClientes,
 )
+from schemas.clientes import ClienteUpdateSchema  # <-- nuevo import
 from models.clientes import Cliente
+from dependencies.auth import get_current_user
+from datetime import datetime
+from services.dv_calculator import calc_dv_if_nit
 
 router = APIRouter(prefix="/clientes", tags=["Clientes"])
 
 def normalize_text(text: str) -> str:
-    """Remplaza las vocales acentuadas por vocales sin tilde."""
     return (text.replace("á", "a")
-                .replace("é", "e")
-                .replace("í", "i")
-                .replace("ó", "o")
-                .replace("ú", "u"))
+               .replace("é", "e")
+               .replace("í", "i")
+               .replace("ó", "o")
+               .replace("ú", "u"))
 
-
-# ─────────────────────────────────────────────────────────────
-# POST /clientes -> Crear un nuevo cliente
-# (con subobjetos tipo_documento, departamento, ciudad)
-# ─────────────────────────────────────────────────────────────
 @router.post("/", response_model=dict)
-def crear_cliente(cliente: ClienteSchema, db: Session = Depends(get_db)):
-    # 1) Convertir nombre a mayúsculas
+def crear_cliente(
+    cliente: ClienteSchema, 
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    # Normalizar y mayúsculas
     cliente.nombre_razon_social = cliente.nombre_razon_social.upper()
-    # 2) Normalizar y quitar espacios en el documento
     cliente.numero_documento = normalize_text(cliente.numero_documento).strip()
 
-    # 3) Verificar si ya existe ese número de documento
-    existe_cliente = db.query(Cliente).filter(
+    # Verificar duplicado en la misma organizacion
+    existe = db.query(Cliente).filter(
+        Cliente.organizacion_id == cliente.organizacion_id,
         Cliente.numero_documento == cliente.numero_documento
     ).first()
-    if existe_cliente:
+    if existe:
         raise HTTPException(
             status_code=400,
-            detail="El número de identificación ya está registrado."
+            detail="El número de identificación ya existe para esta organización."
         )
 
-    # 4) Extraer los IDs de subobjetos
-    tipo_documento_id = cliente.tipo_documento.id if cliente.tipo_documento else None
-    departamento_id = cliente.departamento.id if cliente.departamento else None
-    ciudad_id = cliente.ciudad.id if cliente.ciudad else None
-    
+    # Calcular DV si es NIT => se asume, por ejemplo, tipo_documento_id=2 => NIT
+    dv_calculado = calc_dv_if_nit(cliente.tipo_documento_id, cliente.numero_documento)
 
-    # 5) Crear el objeto de BD con las FK
+    # Crear instancia
     nuevo_cliente = Cliente(
-        tipo_documento_id=tipo_documento_id,
+        tipo_documento_id=cliente.tipo_documento_id,
+        organizacion_id=cliente.organizacion_id,
+        dv=dv_calculado,
         numero_documento=cliente.numero_documento,
         nombre_razon_social=cliente.nombre_razon_social,
         email=cliente.email,
-        departamento_id=departamento_id,
-        ciudad_id=ciudad_id,
+        pagina_web=cliente.pagina_web,
+        departamento_id=cliente.departamento_id,
+        ciudad_id=cliente.ciudad_id,
         direccion=cliente.direccion,
         telefono1=cliente.telefono1,
         telefono2=cliente.telefono2,
@@ -65,17 +67,16 @@ def crear_cliente(cliente: ClienteSchema, db: Session = Depends(get_db)):
         regimen_tributario_id=cliente.regimen_tributario_id,
         moneda_principal_id=cliente.moneda_principal_id,
         tarifa_precios_id=cliente.tarifa_precios_id,
+        actividad_economica_id=cliente.actividad_economica_id,
         forma_pago_id=cliente.forma_pago_id,
+        retencion_id=cliente.retencion_id,
         permitir_venta=cliente.permitir_venta,
         descuento=cliente.descuento,
         cupo_credito=cliente.cupo_credito,
-        sucursal_id=cliente.sucursal_id,
-        vendedor_id=cliente.vendedor_id,
-        pagina_web=cliente.pagina_web,
-        actividad_economica_id=cliente.actividad_economica_id,
-        retencion_id=cliente.retencion_id,
         tipo_marketing_id=cliente.tipo_marketing_id,
+        sucursal_id=cliente.sucursal_id,
         ruta_logistica_id=cliente.ruta_logistica_id,
+        vendedor_id=cliente.vendedor_id,
         observacion=cliente.observacion
     )
     db.add(nuevo_cliente)
@@ -88,63 +89,36 @@ def crear_cliente(cliente: ClienteSchema, db: Session = Depends(get_db)):
         "numero_documento": nuevo_cliente.numero_documento
     }
 
-
-# ─────────────────────────────────────────────────────────────
-# GET /clientes -> Paginado y búsqueda parcial
-# Devuelve { data, page, total_paginas, total_registros }
-# ─────────────────────────────────────────────────────────────
 @router.get("/", response_model=PaginatedClientes)
 def obtener_clientes(
     db: Session = Depends(get_db),
-    search: Optional[str] = Query(None, description="Texto de búsqueda"),
-    page: int = Query(1, ge=1, description="Número de página a solicitar"),
-    page_size: int = 10  # o Query(10, description="Registros por página")
+    search: Optional[str] = Query(None),
+    page: int = 1,
+    page_size: int = 10
 ):
     """
-    Paginación desde el servidor con búsqueda parcial:
-    - 'search' se separa por espacios => 'ca p' -> ['ca','p']
-    - Cada término genera un ILIKE. => nombre_razon_social ILIKE '%ca%' ...
-    - Devuelve:
-      {
-        data: [lista de clientes],
-        page: X,
-        total_paginas: Y,
-        total_registros: Z
-      }
+    Paginar clientes con filtrado por 'search' (sobre nombre_razon_social).
     """
-
     query = db.query(Cliente).options(
-        joinedload(Cliente.tipo_documento),
         joinedload(Cliente.departamento),
         joinedload(Cliente.ciudad)
     )
 
-    # Búsqueda
     if search:
-        # normalizar => remove tildes
         normalized_search = normalize_text(search).strip().lower()
         terms = normalized_search.split()
         for term in terms:
-            query = query.filter(
-                func.lower(Cliente.nombre_razon_social).ilike(f"%{term}%")
-            )
+            query = query.filter(func.lower(Cliente.nombre_razon_social).ilike(f"%{term}%"))
 
-    # Contar cuántos registros hay después del filtro
     total_registros = query.count()
+    total_paginas = max((total_registros + page_size - 1) // page_size, 1)
 
-    # Calcular cuántas páginas
-    total_paginas = (total_registros + page_size - 1) // page_size if total_registros > 0 else 1
-
-    # Asegurar que page no se pase de total_paginas
     if page > total_paginas:
         page = total_paginas
 
     offset = (page - 1) * page_size
-
-    # Obtener la porción con offset+limit
     clientes_db = query.offset(offset).limit(page_size).all()
 
-    # Serializar
     data = [ClienteResponseSchema.from_orm(c) for c in clientes_db]
 
     return {
@@ -154,77 +128,86 @@ def obtener_clientes(
         "total_registros": total_registros
     }
 
-
-# ─────────────────────────────────────────────────────────────
-# PUT /clientes/{cliente_id} -> Actualizar
-# ─────────────────────────────────────────────────────────────
-@router.put("/{cliente_id}", response_model=ClienteResponseSchema)
-def actualizar_cliente(
-    cliente_id: int,
-    cliente_actualizado: ClienteSchema,
-    db: Session = Depends(get_db)
+@router.get("/{cliente_id}", response_model=ClienteResponseSchema)
+def obtener_cliente(
+    cliente_id: int, 
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
+    """
+    Obtiene el cliente por su ID.
+    """
     cliente_db = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     if not cliente_db:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    # Validar duplicado
-    if cliente_actualizado.numero_documento != cliente_db.numero_documento:
-        existe_cliente = db.query(Cliente).filter(
-            Cliente.numero_documento == cliente_actualizado.numero_documento,
-            Cliente.id != cliente_id
-        ).first()
-        if existe_cliente:
-            raise HTTPException(
-                status_code=400,
-                detail=f"El número {cliente_actualizado.numero_documento} ya está registrado."
-            )
+    return cliente_db
 
-    # Normalizar y mayúsculas
-    cliente_actualizado.nombre_razon_social = (
-        normalize_text(cliente_actualizado.nombre_razon_social).upper()
-    )
-    cliente_actualizado.numero_documento = (
-        normalize_text(cliente_actualizado.numero_documento).strip()
-    )
+@router.patch("/{cliente_id}", response_model=ClienteResponseSchema)
+def actualizar_parcial_cliente(
+    cliente_id: int,
+    cliente_data: ClienteUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Actualiza los campos que vengan en el JSON (partial update).
+    """
+    cliente_db = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    if not cliente_db:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    # Extraer subobjetos
-    tipo_documento_id = cliente_actualizado.tipo_documento.id if cliente_actualizado.tipo_documento else None
-    departamento_id = cliente_actualizado.departamento.id if cliente_actualizado.departamento else None
-    ciudad_id = cliente_actualizado.ciudad.id if cliente_actualizado.ciudad else None
-    # 1) Extraer lo que venga del schema
-    vendedor_id = cliente_actualizado.vendedor_id  # None o un int
-    # 2) Asignarlo si corresponde
-    cliente_db.vendedor_id = vendedor_id
+    # Convertimos a dict y excluimos campos no enviados
+    campos = cliente_data.dict(exclude_unset=True)
 
-    # Exclude fields that don't match the DB columns
-    data_dict = cliente_actualizado.dict(exclude_unset=True)
-    data_dict.pop("tipo_documento", None)
-    data_dict.pop("departamento", None)
-    data_dict.pop("ciudad", None)
+    # Validar si cambia 'numero_documento' => checar duplicado
+    if "numero_documento" in campos:
+        doc_nuevo = normalize_text(campos["numero_documento"]).strip()
+        if doc_nuevo != cliente_db.numero_documento:
+            # Checar unique (org, numero_documento)
+            existe = db.query(Cliente).filter(
+                Cliente.organizacion_id == (campos.get("organizacion_id") or cliente_db.organizacion_id),
+                Cliente.numero_documento == doc_nuevo,
+                Cliente.id != cliente_db.id
+            ).first()
+            if existe:
+                raise HTTPException(status_code=400, detail="Ya existe ese documento en la organización.")
+            # Reasignar doc normalizado
+            campos["numero_documento"] = doc_nuevo
 
-    # Actualizar FKs
-    if tipo_documento_id is not None:
-        cliente_db.tipo_documento_id = tipo_documento_id
-    if departamento_id is not None:
-        cliente_db.departamento_id = departamento_id
-    if ciudad_id is not None:
-        cliente_db.ciudad_id = ciudad_id
+    # Validar si 'organizacion_id' cambia
+    if "organizacion_id" in campos and campos["organizacion_id"] != cliente_db.organizacion_id:
+        # Se asume que lo permitimos. (Si no, raise error.)
+        pass
 
-    # Resto de campos
-    for key, value in data_dict.items():
+    # Calcular DV si se cambió tipo_documento_id y numero_documento
+    if "tipo_documento_id" in campos or "numero_documento" in campos:
+        tdoc = campos.get("tipo_documento_id", cliente_db.tipo_documento_id)
+        ndoc = campos.get("numero_documento", cliente_db.numero_documento)
+        dv = calc_dv_if_nit(tdoc, ndoc)
+        if dv:
+            cliente_db.dv = dv
+
+    # Asignar el resto de campos
+    for key, value in campos.items():
+        # Normalizar 'nombre_razon_social' si cambia
+        if key == "nombre_razon_social" and value:
+            value = normalize_text(value).upper()
         setattr(cliente_db, key, value)
 
     db.commit()
     db.refresh(cliente_db)
     return cliente_db
 
-
-# ─────────────────────────────────────────────────────────────
-# DELETE /clientes/{cliente_id}
-# ─────────────────────────────────────────────────────────────
 @router.delete("/{cliente_id}")
-def eliminar_cliente(cliente_id: int, db: Session = Depends(get_db)):
+def eliminar_cliente(
+    cliente_id: int, 
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Elimina un cliente por ID.
+    """
     cliente_db = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     if not cliente_db:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")

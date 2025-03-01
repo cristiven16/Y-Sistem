@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
 from models.catalogos import (TipoDocumento, RegimenTributario, TipoPersona, Moneda, TarifaPrecios, ActividadEconomica,
-    FormaPago, Retencion, TipoMarketing, Sucursal, RutaLogistica, Vendedor)
+    FormaPago, Retencion, TipoMarketing, RutaLogistica)
+from dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/catalogos", tags=["Catálogos"])
 
@@ -52,6 +53,3 @@ def obtener_sucursales(db: Session = Depends(get_db)):
 def obtener_rutas_logisticas(db: Session = Depends(get_db)):
     return db.query(RutaLogistica).all()
 
-@router.get("/vendedores")
-def obtener_vendedores(db: Session = Depends(get_db)):
-    return db.query(Vendedor).all()

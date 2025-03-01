@@ -7,3 +7,6 @@ from .ventas import router as ventas_router
 from .tesoreria import router as tesoreria_router
 from .cuentas_wallet import router as cuentas_wallet_router
 from .chats import router as chats_router
+from .organizations import router as organizations_router
+from .roles import router as roles_router
+from .users import router as users_router

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Numeric, ForeignKey
 from sqlalchemy.orm import relationship
-from database import Base
+from . import Base
 
 class CuentaWallet(Base):
     __tablename__ = "cuentas_wallet"

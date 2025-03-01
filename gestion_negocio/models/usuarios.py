@@ -1,20 +1,36 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
-from database import Base
+from . import Base
+import enum
+
+class EstadoUsuario(str, enum.Enum):
+    activo = "activo"
+    bloqueado = "bloqueado"
+    inactivo = "inactivo"
 
 class Usuario(Base):
     __tablename__ = "usuarios"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     nombre = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    rol_id = Column(Integer, ForeignKey("roles.id"))
 
-    rol = relationship("Rol")
+    # Referencias a Rol y Organizacion
+    rol_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
+    organizacion_id = Column(Integer, ForeignKey("organizaciones.id"), nullable=True)
 
-class Rol(Base):
-    __tablename__ = "roles"
+    # Estado y fechas
+    estado = Column(Enum(EstadoUsuario), default=EstadoUsuario.activo, nullable=False)
+    tiene_mfa = Column(Boolean, default=False)
+    fecha_creacion = Column(DateTime(timezone=True), server_default=func.now())
+    fecha_actualizacion = Column(DateTime(timezone=True), onupdate=func.now())
 
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String, unique=True, nullable=False)
+    # Relaciones
+    rol = relationship("Rol", back_populates="usuarios")
+    organizacion = relationship("Organizacion", back_populates="usuarios")
+    logs = relationship("AuditLog", back_populates="usuario")
+
+
+    def __repr__(self):
+        return f"<Usuario id={self.id} email={self.email} rol_id={self.rol_id}>"

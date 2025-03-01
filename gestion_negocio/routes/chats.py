@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.chats import ChatSchema, ChatResponseSchema
 from models.chats import Chat
+from dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/chats", tags=["Chats"])
 

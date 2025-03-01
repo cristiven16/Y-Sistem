@@ -1,109 +1,131 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 from typing import Optional, List
-from database import get_db
-from models.proveedores import Proveedor  # Ajusta la ruta exacta a tu modelo
-from pydantic_core.core_schema import ValidationInfo
-from .common_schemas import (TipoDocumentoSchema, DepartamentoSchema, CiudadSchema)
 
+# Reusa tus esquemas si los deseas
+from .common_schemas import (
+    TipoDocumentoSchema,
+    DepartamentoSchema,
+    CiudadSchema
+)
 
-# ───────────────────────────────────────────────────────────
-# 🔹 ESQUEMA BÁSICO DEL PROVEEDOR (Para crear / actualizar)
-#    Muy similar a ClienteSchema, pero sin tipo_marketing_id, 
-#    ruta_logistica_id, ni vendedor_id.
-# ───────────────────────────────────────────────────────────
 class ProveedorSchema(BaseModel):
+    """
+    Esquema base para crear/actualizar un Proveedor
+    sin llamadas a la BD.
+    """
     id: Optional[int] = None
 
+    # Multi-tenant
+    organizacion_id: int = Field(..., description="ID de la organización dueña del proveedor")
+
     # Relación con tipo_documento:
+    tipo_documento_id: int = Field(..., description="ID del tipo de documento (p.ej. NIT=2, CC=1, etc.)")
     tipo_documento: Optional[TipoDocumentoSchema] = None
+
+    # DV (dígito de verificación), calculado en la capa de servicios/model
+    dv: Optional[str] = Field(None, description="Dígito de verificación si es NIT")
 
     numero_documento: str = Field(..., min_length=3, max_length=20)
     nombre_razon_social: str = Field(..., min_length=3)
     email: Optional[EmailStr] = None
+    pagina_web: Optional[str] = None
 
-    departamento: Optional[DepartamentoSchema] = None
-    ciudad: Optional[CiudadSchema] = None
+    # Ubicación
+    departamento_id: int
+    ciudad_id: int
     direccion: str = Field(..., min_length=5)
-
     telefono1: Optional[str] = None
     telefono2: Optional[str] = None
     celular: Optional[str] = None
     whatsapp: Optional[str] = None
 
-    # Campos “básicos” similares:
+    # Catálogos
     tipos_persona_id: int = 1
     regimen_tributario_id: int = 5
     moneda_principal_id: int = 1
     tarifa_precios_id: int = 1
-    forma_pago_id: int = 1
-    permitir_venta: bool = True
-    descuento: Optional[float] = 0.0
-    cupo_credito: Optional[float] = 0.0
-    sucursal_id: int = 1
-
-    pagina_web: Optional[str] = None
     actividad_economica_id: Optional[int] = None
+    forma_pago_id: int = 1
     retencion_id: Optional[int] = None
+
+    permitir_venta: bool = True
+    descuento: float = 0.0
+    cupo_credito: float = 0.0
+
+    # No se incluye: tipo_marketing_id, ruta_logistica_id, vendedor_id
+    sucursal_id: int
     observacion: Optional[str] = None
 
-    # 🔹 Eliminados:
-    #   tipo_marketing_id, ruta_logistica_id, vendedor_id
-
-    # ───────────────────────────────────────────────────────────
-    # 🔹 VALIDACIONES PERSONALIZADAS (ej. documento repetido, contacto)
-    # ───────────────────────────────────────────────────────────
-    @field_validator("numero_documento")
-    @classmethod
-    def validar_numero_documento(cls, value: str, info: ValidationInfo):
-        """
-        Comprueba si el número de documento ya existe en la tabla 'proveedores'.
-        """
-        # Si no hay contexto o es un 'GET', omitimos validación
-        if not info.context or info.context.get("operation") == "get":
-            return value
-
-        from database import SessionLocal
-        db = SessionLocal()
-        proveedor_existente = db.query(Proveedor).filter(Proveedor.numero_documento == value).first()
-        db.close()
-
-        if proveedor_existente:
-            raise ValueError(f"El número de identificación {value} ya está registrado en Proveedores.")
-        return value
+    # Relacionados
+    departamento: Optional[DepartamentoSchema] = None
+    ciudad: Optional[CiudadSchema] = None
 
     @model_validator(mode="after")
     def validar_contacto(self):
         """
-        Requiere al menos un número de contacto (teléfono1, teléfono2, celular o whatsapp).
+        Requiere al menos un número de contacto 
+        (telefono1, telefono2, celular o whatsapp).
         """
         if not any([self.telefono1, self.telefono2, self.celular, self.whatsapp]):
-            raise ValueError("Debe proporcionar al menos un número de contacto (Teléfono, Celular o WhatsApp).")
+            raise ValueError("Debe proporcionar al menos un número de contacto (teléfono/celular/whatsapp).")
         return self
 
     @field_validator("nombre_razon_social")
     @classmethod
     def convertir_mayusculas(cls, value: str) -> str:
-        """Convierte el nombre a mayúsculas."""
+        """Convierte la razón social a mayúsculas."""
         return value.upper()
 
     class Config:
         from_attributes = True
 
-# ───────────────────────────────────────────────────────────
-# 🔹 ESQUEMA PARA RESPUESTA DE PROVEEDOR
-#    Incluye el ID y la relación 'tipo_documento' etc.
-# ───────────────────────────────────────────────────────────
+
+class ProveedorUpdateSchema(BaseModel):
+    """ Todos los campos opcionales para permitir actualización parcial. """
+    organizacion_id: Optional[int] = None
+    tipo_documento_id: Optional[int] = None
+    dv: Optional[str] = None
+    numero_documento: Optional[str] = None
+    nombre_razon_social: Optional[str] = None
+    email: Optional[EmailStr] = None
+    pagina_web: Optional[str] = None
+    departamento_id: Optional[int] = None
+    ciudad_id: Optional[int] = None
+    direccion: Optional[str] = None
+    telefono1: Optional[str] = None
+    telefono2: Optional[str] = None
+    celular: Optional[str] = None
+    whatsapp: Optional[str] = None
+    tipos_persona_id: Optional[int] = None
+    regimen_tributario_id: Optional[int] = None
+    moneda_principal_id: Optional[int] = None
+    tarifa_precios_id: Optional[int] = None
+    actividad_economica_id: Optional[int] = None
+    forma_pago_id: Optional[int] = None
+    retencion_id: Optional[int] = None
+    permitir_venta: Optional[bool] = None
+    descuento: Optional[float] = None
+    cupo_credito: Optional[float] = None
+    sucursal_id: Optional[int] = None
+    observacion: Optional[str] = None
+
+    class Config:
+        extra = "ignore"  # Ignora campos desconocidos del front
+
 class ProveedorResponseSchema(ProveedorSchema):
+    """ 
+    Esquema para devolver datos de un proveedor.
+    """
     id: int
-    tipo_documento: Optional[TipoDocumentoSchema] = None
 
     class Config:
         from_attributes = True
 
-# ───────────────────────────────────────────────────────────
-# 🔹 Esquema para respuesta paginada (similar a PaginatedClientes)
-# ───────────────────────────────────────────────────────────
+
 class PaginatedProveedores(BaseModel):
+    """
+    Respuesta paginada para listar proveedores.
+    """
     data: List[ProveedorResponseSchema]
     page: int
     total_paginas: int

@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.cuentas_wallet import CuentaWalletSchema, CuentaWalletResponseSchema
 from models.cuentas_wallet import CuentaWallet
+from dependencies.auth import get_current_user
 
-router = APIRouter(prefix="/cuentas-wallet", tags=["Cuentas Wallet"])
+router = APIRouter(prefix="/cuentas-wallet", tags=["Cuentas Wallet"], dependencies=[Depends(get_current_user)])
 
 @router.post("/", response_model=CuentaWalletResponseSchema)
 def crear_cuenta_wallet(cuenta_wallet: CuentaWalletSchema, db: Session = Depends(get_db)):

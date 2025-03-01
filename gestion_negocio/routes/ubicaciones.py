@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models.ubicaciones import Departamento, Ciudad
+from dependencies.auth import get_current_user
 
-router = APIRouter(prefix="/ubicaciones", tags=["Ubicaciones"])
+router = APIRouter(prefix="/ubicaciones", tags=["Ubicaciones"], dependencies=[Depends(get_current_user)])
 
 @router.get("/departamentos")
 def obtener_departamentos(db: Session = Depends(get_db)):
