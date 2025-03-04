@@ -1,8 +1,10 @@
+// src/pages/Clientes/ClienteForm.tsx
+
 import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import { toast } from "react-toastify";
 
-// APIs de Clientes y Catálogos
+// APIs de Clientes
 import {
   crearCliente,
   actualizarCliente,
@@ -30,11 +32,14 @@ import {
   TipoDocumento,
   Departamento,
   Ciudad,
-  Cliente,
+  ClienteResponse // si deseas
 } from "./clientesTypes";
 
 Modal.setAppElement("#root");
 
+/**
+ * Minimiza
+ */
 function capitalizeWords(str: string): string {
   return str
     .toLowerCase()
@@ -43,7 +48,7 @@ function capitalizeWords(str: string): string {
     .join(" ");
 }
 
-// ❗ Aquí quitamos 'vendedor_id: 1' de initialFormData
+// Valor inicial del formulario
 const initialFormData: ClientePayload = {
   tipo_documento: undefined,
   numero_documento: "",
@@ -67,8 +72,10 @@ const initialFormData: ClientePayload = {
   permitir_venta: true,
   descuento: 0,
   cupo_credito: 0,
+  organizacion_id: 1,
+
   sucursal_id: 1,
-  vendedor_id: null, // <-- en vez de 1, usar null (o undefined)
+  vendedor_id: null,
   pagina_web: "",
   actividad_economica_id: undefined,
   retencion_id: undefined,
@@ -81,7 +88,7 @@ interface ClienteFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  cliente?: Cliente | null;
+  cliente?: ClienteResponse | null; // o tu interfaz "Cliente"
 }
 
 const ClienteForm: React.FC<ClienteFormProps> = ({
@@ -108,7 +115,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [departamentosCargados, setDepartamentosCargados] = useState(false);
 
-  // Form
+  // Form state
   const [formData, setFormData] = useState<ClientePayload>(initialFormData);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -117,15 +124,24 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       cargarCatalogos();
 
       if (cliente) {
-        // Modo edición
+        // Modo edición: mapear cliente => formData
         setFormData({
-          tipo_documento: cliente.tipo_documento,
+          organizacion_id: cliente.organizacion_id,
+          tipo_documento: {
+            id: cliente.tipo_documento_id,
+            nombre: "Desconocido", // Si no tienes data relacional
+            abreviatura: "N/A"
+          },
           numero_documento: cliente.numero_documento,
           nombre_razon_social: cliente.nombre_razon_social,
           email: cliente.email || null,
 
-          departamento: cliente.departamento,
-          ciudad: cliente.ciudad,
+          departamento: cliente.departamento
+            ? { id: cliente.departamento_id, nombre: cliente.departamento.nombre }
+            : undefined,
+          ciudad: cliente.ciudad
+            ? { id: cliente.ciudad_id, nombre: cliente.ciudad.nombre }
+            : undefined,
           direccion: cliente.direccion,
 
           telefono1: cliente.telefono1 || "",
@@ -139,10 +155,10 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           tarifa_precios_id: cliente.tarifa_precios_id,
           forma_pago_id: cliente.forma_pago_id,
           permitir_venta: cliente.permitir_venta,
-          descuento: cliente.descuento || 0,
-          cupo_credito: cliente.cupo_credito || 0,
-          sucursal_id: cliente.sucursal_id,
-          vendedor_id: cliente.vendedor_id ?? null, // si no tiene, pon null
+          descuento: cliente.descuento,
+          cupo_credito: cliente.cupo_credito,
+          sucursal_id: cliente.sucursal_id || 1,
+          vendedor_id: cliente.vendedor_id || null,
           pagina_web: cliente.pagina_web || "",
           actividad_economica_id: cliente.actividad_economica_id,
           retencion_id: cliente.retencion_id,
@@ -233,6 +249,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
   };
 
+  // Manejo de cambios
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -240,21 +257,8 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
   ) => {
     const { name, value, checked } = e.target;
 
-    if (name === "vendedor_id") {
-      // Si no eligen, guardamos null
-      setFormData((prev) => ({
-        ...prev,
-        vendedor_id: value === "" ? null : Number(value),
-      }));
-      return;
-    }
-
     // Filtrar dígitos
-    if (
-      ["numero_documento", "telefono1", "telefono2", "celular", "whatsapp"].includes(
-        name
-      )
-    ) {
+    if (["numero_documento","telefono1","telefono2","celular","whatsapp"].includes(name)) {
       const soloDigitos = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
       return;
@@ -266,21 +270,20 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       return;
     }
 
-    // Campos numéricos
-    if (
-      [
-        "tipos_persona_id",
-        "regimen_tributario_id",
-        "moneda_principal_id",
-        "tarifa_precios_id",
-        "forma_pago_id",
-        "sucursal_id",
-        "actividad_economica_id",
-        "retencion_id",
-        "tipo_marketing_id",
-        "ruta_logistica_id",
-      ].includes(name)
-    ) {
+    // Campos numéricos (IDs)
+    if ([
+      "tipos_persona_id",
+      "regimen_tributario_id",
+      "moneda_principal_id",
+      "tarifa_precios_id",
+      "forma_pago_id",
+      "sucursal_id",
+      "actividad_economica_id",
+      "retencion_id",
+      "tipo_marketing_id",
+      "ruta_logistica_id",
+      "organizacion_id",
+    ].includes(name)) {
       setFormData((prev) => ({
         ...prev,
         [name]: value === "" ? undefined : Number(value),
@@ -288,7 +291,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       return;
     }
 
-    // Email => permitir null
+    // Email => null
     if (name === "email") {
       setFormData((prev) => ({
         ...prev,
@@ -297,23 +300,37 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       return;
     }
 
+    // Vendedor
+    if (name === "vendedor_id") {
+      setFormData((prev) => ({
+        ...prev,
+        vendedor_id: value === "" ? null : Number(value),
+      }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Select para tipo_documento
   const handleTipoDocumentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const found = tiposDocumento.find((td) => td.id === selectedId);
     setFormData((prev) => ({ ...prev, tipo_documento: found }));
   };
 
-  const handleDepartamentoChange = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
+  // Select para departamento
+  const handleDepartamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const dep = departamentos.find((d) => d.id === selectedId);
-    setFormData((prev) => ({ ...prev, departamento: dep, ciudad: undefined }));
+    setFormData((prev) => ({
+      ...prev,
+      departamento: dep,
+      ciudad: undefined
+    }));
   };
 
+  // Select para ciudad
   const handleCiudadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const c = ciudades.find((ci) => ci.id === selectedId);
@@ -322,13 +339,13 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Enviando payload:", formData);
+    console.log("Enviando formData:", formData);
 
+    // Validaciones mínimas
     if (!formData.numero_documento || !formData.nombre_razon_social) {
       toast.error("Documento y Nombre son obligatorios.");
       return;
     }
-
     if (
       !formData.telefono1 &&
       !formData.telefono2 &&
@@ -338,7 +355,6 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       toast.error("Debe ingresar al menos un teléfono o celular.");
       return;
     }
-
     if (!formData.departamento) {
       toast.error("Debe seleccionar un departamento.");
       return;
@@ -347,13 +363,59 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       toast.error("Debe seleccionar una ciudad.");
       return;
     }
+    if (!formData.tipo_documento?.id) {
+      toast.error("Debe seleccionar el tipo de documento.");
+      return;
+    }
+    if (!formData.organizacion_id) {
+      toast.error("Falta asignar la organización del cliente.");
+      return;
+    }
+
+    // Aplanar el payload
+    const payload = {
+      tipo_documento_id: formData.tipo_documento.id,
+      organizacion_id: formData.organizacion_id,
+      numero_documento: formData.numero_documento,
+      nombre_razon_social: formData.nombre_razon_social,
+      email: formData.email,
+      pagina_web: formData.pagina_web,
+
+      departamento_id: formData.departamento.id,
+      ciudad_id: formData.ciudad.id,
+      direccion: formData.direccion,
+
+      telefono1: formData.telefono1,
+      telefono2: formData.telefono2,
+      celular: formData.celular,
+      whatsapp: formData.whatsapp,
+
+      tipos_persona_id: formData.tipos_persona_id,
+      regimen_tributario_id: formData.regimen_tributario_id,
+      moneda_principal_id: formData.moneda_principal_id,
+      tarifa_precios_id: formData.tarifa_precios_id,
+      forma_pago_id: formData.forma_pago_id,
+      permitir_venta: formData.permitir_venta,
+      descuento: Number(formData.descuento),
+      cupo_credito: Number(formData.cupo_credito),
+
+      sucursal_id: formData.sucursal_id,
+      vendedor_id: formData.vendedor_id,
+      actividad_economica_id: formData.actividad_economica_id,
+      retencion_id: formData.retencion_id,
+      tipo_marketing_id: formData.tipo_marketing_id,
+      ruta_logistica_id: formData.ruta_logistica_id,
+      observacion: formData.observacion,
+    };
 
     try {
       if (cliente && cliente.id) {
-        await actualizarCliente(cliente.id, formData);
+        // Actualizar => PATCH
+        await actualizarCliente(cliente.id, payload);
         toast.success("Cliente actualizado con éxito.");
       } else {
-        await crearCliente(formData);
+        // Crear => POST
+        await crearCliente(payload);
         toast.success("Cliente creado con éxito.");
       }
 
@@ -576,20 +638,23 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           <div className="hidden lg:block" />
         </div>
 
+        {/* Botón para ver campos avanzados */}
         <div className="mb-3">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="btn-secondary"
           >
-            {showAdvanced ? "Ocultar detalles opcionales" : "Mostrar detalles opcionales"}
+            {showAdvanced
+              ? "Ocultar detalles opcionales"
+              : "Mostrar detalles opcionales"}
           </button>
         </div>
 
         {showAdvanced && (
           <div className="border p-3 rounded-lg mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Tipo Persona */}
+              {/* Tipo de Persona */}
               <div>
                 <label className="label" htmlFor="tipos_persona_id">
                   Tipo de Persona
@@ -669,7 +734,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </select>
               </div>
 
-              {/* FormaPago */}
+              {/* Forma de Pago */}
               <div>
                 <label className="label" htmlFor="forma_pago_id">
                   Forma de Pago
@@ -775,11 +840,11 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 <select
                   id="sucursal_id"
                   name="sucursal_id"
-                  value={formData.sucursal_id}
+                  value={formData.sucursal_id || 1}
                   onChange={handleChange}
                   className="input-field"
                 >
-                  {sucursales.map((suc) => (
+                  {sucursales.map((suc: any) => (
                     <option key={suc.id} value={suc.id}>
                       {suc.nombre}
                     </option>
@@ -869,7 +934,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                 </label>
               </div>
 
-              {/* Observacion */}
+              {/* Observación */}
               <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                 <label className="label" htmlFor="observacion">
                   Observación

@@ -43,7 +43,7 @@ class ClienteSchema(BaseModel):
     # Ubicación
     departamento_id: int = Field(..., description="ID del departamento")
     ciudad_id: int = Field(..., description="ID de la ciudad")
-    direccion: str = Field(..., min_length=5, description="Dirección de residencia/fiscal")
+    direccion: str = Field(..., min_length=1, description="Dirección de residencia/fiscal")
 
     telefono1: Optional[str] = None
     telefono2: Optional[str] = None

@@ -59,6 +59,16 @@ def create_user(
     log_event(db, current_user.id, "USER_CREATED", f"Creación de usuario {nuevo_usuario.email}")
     return nuevo_usuario
 
+@router.get("/me", response_model=UserRead)
+def get_me(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Retorna los datos del usuario logueado (extraídos del token).
+    """
+    return current_user
+
 
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(
@@ -149,3 +159,8 @@ def delete_user(
 
     log_event(db, current_user.id, "USER_DELETED", f"Usuario {user_id} eliminado")
     return {"message": f"Usuario {user_id} eliminado con éxito"}
+
+
+
+
+    

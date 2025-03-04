@@ -45,10 +45,6 @@ def obtener_retenciones(db: Session = Depends(get_db)):
 def obtener_tipos_marketing(db: Session = Depends(get_db)):
     return db.query(TipoMarketing).all()
 
-@router.get("/sucursales")
-def obtener_sucursales(db: Session = Depends(get_db)):
-    return db.query(Sucursal).all()
-
 @router.get("/rutas-logisticas")
 def obtener_rutas_logisticas(db: Session = Depends(get_db)):
     return db.query(RutaLogistica).all()

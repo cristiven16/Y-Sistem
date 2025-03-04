@@ -1,7 +1,12 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 from datetime import datetime
+from .common_schemas import (
+    TipoDocumentoSchema,
+    DepartamentoSchema,
+    CiudadSchema
+)
 
 class OrganizacionBase(BaseModel):
     tipo_documento_id: Optional[int] = None
@@ -80,6 +85,52 @@ class SucursalCreate(SucursalBase):
 
 class SucursalRead(SucursalBase):
     id: int
+    organizacion_id: int
+    nombre: str
+    pais: Optional[str]
+    departamento_id: Optional[int]
+    ciudad_id: Optional[int]
+    direccion: Optional[str]
+    telefonos: Optional[str]
+    prefijo_transacciones: Optional[str]
+    sucursal_principal: bool
+    activa: bool
+
+    # 🔹 Relación:
+    departamento: Optional[DepartamentoSchema] = None
+    ciudad: Optional[CiudadSchema] = None
+
+    class Config:
+        from_attributes = True
+
+class SucursalUpdate(BaseModel):
+    organizacion_id: Optional[int] = None
+    nombre: Optional[str] = None
+    pais: Optional[str] = None
+    departamento_id: Optional[int] = None
+    ciudad_id: Optional[int] = None
+    direccion: Optional[str] = None
+    telefonos: Optional[str] = None
+    prefijo_transacciones: Optional[str] = None
+    sucursal_principal: Optional[bool] = None
+    activa: Optional[bool] = None
+
+    class Config:
+        extra = "ignore"   # Ignora campos no definidos, si llegaran del front
+
+class SucursalNested(BaseModel):
+    id: int
+    nombre: str
+    # si deseas otros campos
+    
+    class Config:
+        from_attributes = True
+
+class PaginatedSucursales(BaseModel):
+    data: List[SucursalRead]
+    page: int
+    total_paginas: int
+    total_registros: int
 
     class Config:
         from_attributes = True
@@ -109,8 +160,25 @@ class BodegaBase(BaseModel):
 class BodegaCreate(BodegaBase):
     organizacion_id: int
 
-class BodegaRead(BodegaBase):
+class BodegaRead(BaseModel):
     id: int
+    organizacion_id: int
+    sucursal_id: int
+    nombre: str
+    bodega_por_defecto: bool
+    estado: bool
+
+    # Relación anidada
+    sucursal: Optional[SucursalNested] = None
+    
+    class Config:
+        from_attributes = True
+
+class PaginatedBodegas(BaseModel):
+    data: List[BodegaRead]
+    page: int
+    total_paginas: int
+    total_registros: int
 
     class Config:
         from_attributes = True
@@ -144,6 +212,15 @@ class CajaCreate(CajaBase):
 class CajaRead(CajaBase):
     id: int
     # Podrías agregar timestamps, responsables, etc.
+
+    class Config:
+        from_attributes = True
+
+class PaginatedCajas(BaseModel):
+    data: List[CajaRead]
+    page: int
+    total_paginas: int
+    total_registros: int
 
     class Config:
         from_attributes = True

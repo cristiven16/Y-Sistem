@@ -1,198 +1,199 @@
 // src/api/clientesAPI.ts
-import axios from "axios";
-import { API_BASE_URL } from "./config";  // Importa tu URL base
-import { Cliente, ClientePayload } from "../pages/Clientes/clientesTypes";
+import apiClient from "./axiosConfig";
+import { ClientePayload, ClienteResponse } from "../pages/Clientes/clientesTypes";
+
+/** 
+ * Interfaces para tu paginación y respuestas.
+ */
+export interface PaginatedClientes<T> {
+  data: T[];
+  page: number;
+  total_paginas: number;
+  total_registros: number;
+}
+
+export interface CrearClienteResponse {
+  message: string;
+  id: number;
+  numero_documento: string;
+}
 
 /**
- * Endpoints de CLIENTES
+ * Obtener la lista de clientes de forma paginada.
+ * - El backend retorna { data, page, total_paginas, total_registros }.
  */
-const CLIENTES_URL = `${API_BASE_URL}/clientes`;
+export async function getClientes(
+  search = "",
+  page = 1,
+  page_size = 10
+): Promise<PaginatedClientes<ClienteResponse>> {
+  const response = await apiClient.get("/clientes", {
+    params: { search, page, page_size },
+  });
+  return response.data; 
+}
 
 /**
- * Obtener la lista de clientes
+ * Crear un nuevo cliente (POST /clientes).
+ * - Retorna { message, id, numero_documento }.
  */
-export const getClientes = async (search: string = ""): Promise<Cliente[]> => {
-  try {
-    // Si tienes paginación, ajusta params
-    const response = await axios.get(CLIENTES_URL, { params: { search } });
-    // Suponiendo que el backend retorna directamente un array
-    // o bien { data, page, total_paginas, etc. }
-    return response.data;
-  } catch (error) {
-    console.error("Error al obtener clientes:", error);
-    throw error;
-  }
-};
-
-/**
- * Crear un nuevo cliente
- */
-export const crearCliente = async (payload: ClientePayload): Promise<any> => {
-  try {
-    const response = await axios.post(CLIENTES_URL, payload);
-    return response.data;
-  } catch (error) {
-    console.error("Error al crear cliente:", error);
-    throw error;
-  }
-};
-
-/**
- * Actualizar cliente existente
- */
-export const actualizarCliente = async (
-  clienteId: number,
+export async function crearCliente(
   payload: ClientePayload
-): Promise<any> => {
-  try {
-    const response = await axios.put(`${CLIENTES_URL}/${clienteId}`, payload);
-    return response.data;
-  } catch (error) {
-    console.error("Error al actualizar cliente:", error);
-    throw error;
-  }
-};
+): Promise<CrearClienteResponse> {
+  // Recuerda aplanar en tu formulario. 
+  const response = await apiClient.post("/clientes", payload);
+  return response.data;
+}
 
 /**
- * Eliminar cliente
+ * Obtener un cliente por ID (GET /clientes/{id}).
  */
-export const deleteCliente = async (id: number): Promise<void> => {
-  try {
-    await axios.delete(`${CLIENTES_URL}/${id}`);
-  } catch (error) {
-    console.error("Error al eliminar cliente:", error);
-    throw error;
-  }
-};
+export async function getClienteById(
+  clienteId: number
+): Promise<ClienteResponse> {
+  const response = await apiClient.get(`/clientes/${clienteId}`);
+  return response.data;
+}
+
+/**
+ * Actualizar (parcial) un cliente (PATCH /clientes/{id}).
+ * El backend retorna el cliente actualizado.
+ */
+export async function actualizarCliente(
+  clienteId: number,
+  payload: Partial<ClientePayload>
+): Promise<ClienteResponse> {
+  const response = await apiClient.patch(`/clientes/${clienteId}`, payload);
+  return response.data;
+}
+
+/**
+ * Eliminar cliente (DELETE /clientes/{id}).
+ */
+export async function deleteCliente(id: number): Promise<void> {
+  await apiClient.delete(`/clientes/${id}`);
+}
 
 /* ──────────────────────────────────────────────────────────
-   Catalogos
+   Catálogos (se asume que siguen vigentes)
    ──────────────────────────────────────────────────────────
 */
-export const obtenerTiposDocumento = async (): Promise<any[]> => {
+export async function obtenerTiposDocumento(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/tipos-documento`);
+    const response = await apiClient.get("/catalogos/tipos-documento");
     return response.data;
   } catch (error) {
     console.error("Error al obtener tipos de documento:", error);
     return [];
   }
-};
+}
 
-export const obtenerRegimenesTributarios = async (): Promise<any[]> => {
+export async function obtenerRegimenesTributarios(): Promise<any[]> {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/catalogos/regimenes-tributarios`
-    );
+    const response = await apiClient.get("/catalogos/regimenes-tributarios");
     return response.data;
   } catch (error) {
     console.error("Error al obtener regímenes tributarios:", error);
     return [];
   }
-};
+}
 
-export const obtenerTiposPersona = async (): Promise<any[]> => {
+export async function obtenerTiposPersona(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/tipos-persona`);
+    const response = await apiClient.get("/catalogos/tipos-persona");
     return response.data;
   } catch (error) {
     console.error("Error al obtener tipos de persona:", error);
     return [];
   }
-};
+}
 
-export const obtenerMonedas = async (): Promise<any[]> => {
+export async function obtenerMonedas(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/monedas`);
+    const response = await apiClient.get("/catalogos/monedas");
     return response.data;
   } catch (error) {
     console.error("Error al obtener monedas:", error);
     return [];
   }
-};
+}
 
-export const obtenerTarifasPrecios = async (): Promise<any[]> => {
+export async function obtenerTarifasPrecios(): Promise<any[]> {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/catalogos/tarifas-precios`
-    );
+    const response = await apiClient.get("/catalogos/tarifas-precios");
     return response.data;
   } catch (error) {
     console.error("Error al obtener tarifas de precios:", error);
     return [];
   }
-};
+}
 
-export const obtenerFormasPago = async (): Promise<any[]> => {
+export async function obtenerFormasPago(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/formas-pago`);
+    const response = await apiClient.get("/catalogos/formas-pago");
     return response.data;
   } catch (error) {
     console.error("Error al obtener formas de pago:", error);
     return [];
   }
-};
+}
 
-export const obtenerSucursales = async (): Promise<any[]> => {
+export async function obtenerSucursales(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/sucursales`);
+    const response = await apiClient.get("/catalogos/sucursales");
     return response.data;
   } catch (error) {
     console.error("Error al obtener sucursales:", error);
     return [];
   }
-};
+}
 
-// Vendedores
-export const obtenerVendedores = async (): Promise<any[]> => {
+export async function obtenerVendedores(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/vendedores`);
+    const response = await apiClient.get("/catalogos/vendedores");
     return response.data;
   } catch (error) {
     console.error("Error al obtener vendedores:", error);
     return [];
   }
-};
+}
 
-// Actividades económicas
-export const obtenerActividadesEconomicas = async (): Promise<any[]> => {
+export async function obtenerActividadesEconomicas(): Promise<any[]> {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/catalogos/actividades-economicas`
-    );
+    const response = await apiClient.get("/catalogos/actividades-economicas");
     return response.data;
   } catch (error) {
     console.error("Error al obtener actividades económicas:", error);
     return [];
   }
-};
+}
 
-export const obtenerRetenciones = async (): Promise<any[]> => {
+export async function obtenerRetenciones(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/retenciones`);
+    const response = await apiClient.get("/catalogos/retenciones");
     return response.data;
   } catch (error) {
     console.error("Error al obtener retenciones:", error);
     return [];
   }
-};
+}
 
-export const obtenerTiposMarketing = async (): Promise<any[]> => {
+export async function obtenerTiposMarketing(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/tipos-marketing`);
+    const response = await apiClient.get("/catalogos/tipos-marketing");
     return response.data;
   } catch (error) {
     console.error("Error al obtener tipos de marketing:", error);
     return [];
   }
-};
+}
 
-export const obtenerRutasLogisticas = async (): Promise<any[]> => {
+export async function obtenerRutasLogisticas(): Promise<any[]> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/catalogos/rutas-logisticas`);
+    const response = await apiClient.get("/catalogos/rutas-logisticas");
     return response.data;
   } catch (error) {
     console.error("Error al obtener rutas logísticas:", error);
     return [];
   }
-};
+}

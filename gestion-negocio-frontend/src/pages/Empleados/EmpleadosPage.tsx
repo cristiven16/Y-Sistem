@@ -23,7 +23,7 @@ const EmpleadosPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 3. Control de modales
+  // 3. Control de modales (crear, detalles, editar, confirm)
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -87,7 +87,8 @@ const EmpleadosPage: React.FC = () => {
     try {
       await eliminarEmpleado(selectedEmpleado.id);
       toast.success("Empleado eliminado con éxito.");
-      fetchEmpleados(page, search); // recargamos la página actual
+      // Recargamos la lista en la misma página
+      fetchEmpleados(page, search);
     } catch (err) {
       console.error("Error al eliminar empleado:", err);
       toast.error("Ocurrió un error al eliminar el empleado.");
@@ -169,11 +170,11 @@ const EmpleadosPage: React.FC = () => {
           )}
 
           {/* Paginación */}
-          <div className="pagination mt-4">
+          <div className="pagination mt-4 flex gap-2">
             <button
               onClick={() => goToPage(Math.max(page - 1, 1))}
               disabled={page === 1}
-              className={"page-btn " + (page === 1 ? "page-btn-disabled" : "")}
+              className="page-btn"
             >
               Anterior
             </button>
@@ -194,9 +195,7 @@ const EmpleadosPage: React.FC = () => {
             <button
               onClick={() => goToPage(Math.min(page + 1, totalPaginas))}
               disabled={page === totalPaginas}
-              className={
-                "page-btn " + (page === totalPaginas ? "page-btn-disabled" : "")
-              }
+              className="page-btn"
             >
               Siguiente
             </button>
@@ -209,7 +208,7 @@ const EmpleadosPage: React.FC = () => {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSuccess={() => {
-          // recarga
+          // recarga la lista en la página actual
           fetchEmpleados(page, search);
         }}
       />

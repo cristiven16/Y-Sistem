@@ -1,13 +1,16 @@
+// src/store/clientesStore.ts
+
 import { create } from "zustand";
 import { getClientes } from "../api/clientesAPI";
-import { Cliente } from "../pages/Clientes/clientesTypes";
+import { ClienteResponse } from "../pages/Clientes/clientesTypes";
 
 interface ClientesState {
-  clientes: Cliente[];
+  clientes: ClienteResponse[];
   search: string;
   paginaActual: number;
-  clientesPorPagina: number;
   totalPaginas: number;
+  pageSize: number;
+
   setSearch: (search: string) => void;
   setPaginaActual: (pagina: number) => void;
   fetchClientes: () => Promise<void>;
@@ -17,23 +20,31 @@ export const useClientesStore = create<ClientesState>((set, get) => ({
   clientes: [],
   search: "",
   paginaActual: 1,
-  clientesPorPagina: 10,
   totalPaginas: 1,
+  pageSize: 10,
 
-  setSearch: (search) => {
-    set({ search });
+  setSearch: (search: string) => {
+    set({ search, paginaActual: 1 }); 
+    // Luego al cambiar search, queremos recargar desde la pag 1
     get().fetchClientes();
   },
 
-  setPaginaActual: (pagina) => set({ paginaActual: pagina }),
+  setPaginaActual: (pagina: number) => {
+    set({ paginaActual: pagina });
+    get().fetchClientes();
+  },
 
   fetchClientes: async () => {
-    const { search, clientesPorPagina } = get();
-    const data = await getClientes(search);
-    set({
-      clientes: data,
-      totalPaginas: Math.ceil(data.length / clientesPorPagina),
-      paginaActual: 1, // Reiniciar a la primera página al hacer una nueva búsqueda
-    });
+    const { search, paginaActual, pageSize } = get();
+    try {
+      // Llamamos al backend con la paginación
+      const data = await getClientes(search, paginaActual, pageSize);
+      set({
+        clientes: data.data,
+        totalPaginas: data.total_paginas,
+      });
+    } catch (err) {
+      console.error("Error al fetchClientes:", err);
+    }
   },
 }));

@@ -1,30 +1,30 @@
+// src/App.tsx
 import { BrowserRouter as Router } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "./hooks/useAuth";
 import Sidebar from "./components/Sidebar";
-import AppRoutes from "./routes";
+import AppRoutes from "./routes/AppRoutes";
 
 function App() {
-  // Estado para controlar si la sidebar está abierta o cerrada
+  const { isLoading } = useAuth(); // <-- Traemos isLoading
   const [isOpen, setIsOpen] = useState(true);
 
+  // 1) Mientras isLoading => spinner
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-xl">Cargando la App...</p>
+        {/* Podrías usar un spinner si tienes una librería o un icono */}
+      </div>
+    );
+  }
+
+  // 2) Ya no está cargando => render normal
   return (
     <Router>
       <div className="bg-gray-100 min-h-screen flex">
-        {/* Sidebar fijo a la izquierda */}
         <Sidebar isOpen={isOpen} setIsOpen={setIsOpen} />
-
-        {/* Contenedor principal:
-            Aplica margin-left distinto según isOpen (64 vs 16) */}
-        <div
-          className={`
-            flex-1 
-            transition-all 
-            duration-300
-            ${isOpen ? "ml-64" : "ml-16"} 
-            p-4
-            overflow-auto
-          `}
-        >
+        <div className={`${isOpen ? "ml-64" : "ml-16"} flex-1 p-4 overflow-auto`}>
           <AppRoutes />
         </div>
       </div>

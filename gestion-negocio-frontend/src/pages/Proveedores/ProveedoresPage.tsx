@@ -1,6 +1,6 @@
+// src/pages/Proveedores/ProveedoresPage.tsx
 import React, { useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import axios from "axios";
 import { toast } from "react-toastify";
 
 import ProveedoresTable from "./ProveedoresTable";
@@ -8,60 +8,50 @@ import ProveedorForm from "./ProveedorForm";
 import ProveedorDetailsModal from "../../components/ProveedorDetailsModal";
 import ConfirmModal from "../../components/ConfirmModal";
 
-/** Interfaz mínima para un proveedor */
+// Importar las funciones actualizadas
+import { getProveedores, deleteProveedor } from "../../api/proveedoresAPI";
+
+/** 
+ * Interfaz mínima para la tabla
+ * (podrías usar ProveedorResponse si quieres más campos)
+ */
 interface Proveedor {
   id: number;
   nombre_razon_social: string;
   numero_documento: string;
   direccion: string;
-  // ... agrega más campos si lo requieres ...
+  // ... añade más si lo necesitas ...
 }
 
-const API_URL = "http://localhost:8000/proveedores"; 
-// Ajusta la URL base según tu backend
-
 const ProveedoresPage: React.FC = () => {
-  // Estado para la lista de proveedores y paginación
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [page, setPage] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
 
-  // Búsqueda / estado de feedback
+  // Búsqueda, loading, error
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Control de modales
+  // Modales
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  // Proveedor seleccionado para editar/eliminar/detalles
   const [selectedProveedor, setSelectedProveedor] = useState<Proveedor | null>(null);
 
-  // ─────────────────────────────────────────────────────────────
-  // Carga de proveedores (paginado y búsqueda)
-  // ─────────────────────────────────────────────────────────────
+  // Cargar proveedores
   const fetchProveedores = async (pageNumber: number, searchText: string) => {
     try {
       setLoading(true);
       setError(null);
-      const resp = await axios.get(`${API_URL}`, {
-        params: { page: pageNumber, search: searchText },
-      });
-      /**
-       * Si tu backend responde con
-       * {
-       *   data: Proveedor[],
-       *   page: number,
-       *   total_paginas: number,
-       *   total_registros: number
-       * }
-       */
-      setProveedores(resp.data.data);
-      setPage(resp.data.page);
-      setTotalPaginas(resp.data.total_paginas);
+
+      // getProveedores => { data, page, total_paginas, total_registros }
+      const resp = await getProveedores(searchText, pageNumber, 10);
+      setProveedores(resp.data);
+      setPage(resp.page);
+      setTotalPaginas(resp.total_paginas);
     } catch (err) {
       console.error(err);
       setError("Error al cargar proveedores");
@@ -70,19 +60,16 @@ const ProveedoresPage: React.FC = () => {
     }
   };
 
-  // Al montar, cargar página 1 sin filtro
+  // Montar => página 1, sin filtro
   useEffect(() => {
     fetchProveedores(1, "");
   }, []);
 
-  // Cada vez que cambie 'search', recargamos desde la página 1
+  // Cambiar 'search' => recargar página 1
   useEffect(() => {
     fetchProveedores(1, search);
   }, [search]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Manejo de búsqueda
-  // ─────────────────────────────────────────────────────────────
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
@@ -92,22 +79,18 @@ const ProveedoresPage: React.FC = () => {
     fetchProveedores(pageNumber, search);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // Eliminar -> Abrir confirm modal
-  // ─────────────────────────────────────────────────────────────
+  // Eliminar => confirm
   const handleDeleteProveedor = (id: number) => {
     const found = proveedores.find((p) => p.id === id) || null;
     setSelectedProveedor(found);
     setIsConfirmOpen(true);
   };
 
-  // Confirmar eliminación
   const confirmDelete = async () => {
     if (!selectedProveedor) return;
     try {
-      await axios.delete(`${API_URL}/${selectedProveedor.id}`);
+      await deleteProveedor(selectedProveedor.id);
       toast.success("Proveedor eliminado con éxito.");
-      // Recargar la lista en la misma página
       fetchProveedores(page, search);
     } catch (error) {
       console.error("Error al eliminar proveedor:", error);
@@ -118,27 +101,21 @@ const ProveedoresPage: React.FC = () => {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
   // Ver detalles
-  // ─────────────────────────────────────────────────────────────
   const handleViewDetails = (id: number) => {
     const found = proveedores.find((p) => p.id === id) || null;
     setSelectedProveedor(found);
     setIsDetailsOpen(true);
   };
 
-  // ─────────────────────────────────────────────────────────────
   // Editar
-  // ─────────────────────────────────────────────────────────────
   const handleEdit = (id: number) => {
     const found = proveedores.find((p) => p.id === id) || null;
     setSelectedProveedor(found);
     setIsEditOpen(true);
   };
 
-  // ─────────────────────────────────────────────────────────────
   // Cerrar modales
-  // ─────────────────────────────────────────────────────────────
   const closeModals = () => {
     setIsCreateOpen(false);
     setIsDetailsOpen(false);
@@ -147,9 +124,6 @@ const ProveedoresPage: React.FC = () => {
     setSelectedProveedor(null);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Proveedores</h1>
@@ -190,11 +164,11 @@ const ProveedoresPage: React.FC = () => {
           )}
 
           {/* Paginación */}
-          <div className="pagination mt-4">
+          <div className="pagination mt-4 flex gap-2">
             <button
               onClick={() => goToPage(Math.max(page - 1, 1))}
               disabled={page === 1}
-              className={"page-btn " + (page === 1 ? "page-btn-disabled" : "")}
+              className="page-btn"
             >
               Anterior
             </button>
@@ -205,8 +179,7 @@ const ProveedoresPage: React.FC = () => {
                   key={pageNumber}
                   onClick={() => goToPage(pageNumber)}
                   className={
-                    "page-btn " +
-                    (pageNumber === page ? "page-btn-active" : "")
+                    "page-btn " + (pageNumber === page ? "page-btn-active" : "")
                   }
                 >
                   {pageNumber}
@@ -216,9 +189,7 @@ const ProveedoresPage: React.FC = () => {
             <button
               onClick={() => goToPage(Math.min(page + 1, totalPaginas))}
               disabled={page === totalPaginas}
-              className={
-                "page-btn " + (page === totalPaginas ? "page-btn-disabled" : "")
-              }
+              className="page-btn"
             >
               Siguiente
             </button>

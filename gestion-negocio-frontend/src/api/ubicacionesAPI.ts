@@ -1,10 +1,14 @@
 // src/api/ubicacionesAPI.ts
-import axios from "axios";
-import { API_BASE_URL } from "./config";
+import apiClient from "./axiosConfig";
 
+/**
+ * Obtener lista de departamentos
+ */
 export const obtenerDepartamentos = async (): Promise<any[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/ubicaciones/departamentos`);
+    // Llamamos a "/ubicaciones/departamentos" a través de apiClient
+    // (El baseURL y el token se manejan en axiosConfig.ts)
+    const response = await apiClient.get("/ubicaciones/departamentos");
     return response.data;
   } catch (error) {
     console.error("Error al obtener departamentos:", error);
@@ -12,9 +16,12 @@ export const obtenerDepartamentos = async (): Promise<any[]> => {
   }
 };
 
+/**
+ * Obtener ciudades, filtrando por departamento.
+ */
 export const obtenerCiudades = async (departamentoId: number): Promise<any[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/ubicaciones/ciudades`, {
+    const response = await apiClient.get("/ubicaciones/ciudades", {
       params: { departamento_id: departamentoId },
     });
     return response.data;

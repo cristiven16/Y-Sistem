@@ -1,8 +1,9 @@
+// src/pages/Proveedores/ProveedorForm.tsx
 import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import { toast } from "react-toastify";
 
-// APIs para Proveedores y Catálogos
+// APIs para Proveedores y catálogos
 import {
   crearProveedor,
   actualizarProveedor,
@@ -17,21 +18,14 @@ import {
   obtenerRetenciones,
 } from "../../api/proveedoresAPI";
 
-// APIs de ubicaciones (para departamentos y ciudades)
+// APIs de ubicaciones
 import { obtenerDepartamentos, obtenerCiudades } from "../../api/ubicacionesAPI";
 
-// Tipos de datos
-import {
-  ProveedorPayload,
-  TipoDocumento,
-  Departamento,
-  Ciudad,
-  Proveedor,
-} from "./proveedoresTypes";
+// Tipos
+import { ProveedorPayload, Proveedor, TipoDocumento, Departamento, Ciudad } from "./proveedoresTypes";
 
 Modal.setAppElement("#root");
 
-// Función para capitalizar
 function capitalizeWords(str: string): string {
   return str
     .toLowerCase()
@@ -45,7 +39,7 @@ const initialFormData: ProveedorPayload = {
   tipo_documento: undefined,
   numero_documento: "",
   nombre_razon_social: "",
-  email: null, // <- Usamos null para ser consistente con ClienteForm
+  email: "",
 
   departamento: undefined,
   ciudad: undefined,
@@ -76,7 +70,7 @@ interface ProveedorFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  proveedor?: Proveedor | null;
+  proveedor?: Proveedor | null; // Podrías usar ProveedorResponse si lo deseas
 }
 
 const ProveedorForm: React.FC<ProveedorFormProps> = ({
@@ -85,7 +79,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
   onSuccess,
   proveedor,
 }) => {
-  // 1. Catálogos
+  // Catálogos
   const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([]);
   const [regimenes, setRegimenes] = useState<any[]>([]);
   const [tiposPersona, setTiposPersona] = useState<any[]>([]);
@@ -96,26 +90,25 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
   const [actividadesEco, setActividadesEco] = useState<any[]>([]);
   const [retenciones, setRetenciones] = useState<any[]>([]);
 
-  // 2. Ubicaciones
+  // Ubicaciones
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [departamentosCargados, setDepartamentosCargados] = useState(false);
 
-  // 3. Form
+  // Form data
   const [formData, setFormData] = useState<ProveedorPayload>(initialFormData);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Al abrir modal
   useEffect(() => {
     if (isOpen) {
       cargarCatalogos();
       if (proveedor) {
-        // Modo edición: cargamos datos del proveedor
+        // Modo edición
         setFormData({
           tipo_documento: proveedor.tipo_documento || undefined,
           numero_documento: proveedor.numero_documento,
           nombre_razon_social: proveedor.nombre_razon_social,
-          email: proveedor.email ?? null,
+          email: proveedor.email || "",
 
           departamento: proveedor.departamento,
           ciudad: proveedor.ciudad,
@@ -126,15 +119,15 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           celular: proveedor.celular || "",
           whatsapp: proveedor.whatsapp || "",
 
-          tipos_persona_id: proveedor.tipos_persona_id || 1,
-          regimen_tributario_id: proveedor.regimen_tributario_id || 5,
-          moneda_principal_id: proveedor.moneda_principal_id || 1,
-          tarifa_precios_id: proveedor.tarifa_precios_id || 1,
-          forma_pago_id: proveedor.forma_pago_id || 1,
-          permitir_venta: proveedor.permitir_venta ?? true,
-          descuento: proveedor.descuento ?? 0,
-          cupo_credito: proveedor.cupo_credito ?? 0,
-          sucursal_id: proveedor.sucursal_id || 1,
+          tipos_persona_id: proveedor.tipos_persona_id,
+          regimen_tributario_id: proveedor.regimen_tributario_id,
+          moneda_principal_id: proveedor.moneda_principal_id,
+          tarifa_precios_id: proveedor.tarifa_precios_id,
+          forma_pago_id: proveedor.forma_pago_id,
+          permitir_venta: proveedor.permitir_venta,
+          descuento: proveedor.descuento,
+          cupo_credito: proveedor.cupo_credito,
+          sucursal_id: proveedor.sucursal_id,
 
           pagina_web: proveedor.pagina_web || "",
           actividad_economica_id: proveedor.actividad_economica_id,
@@ -142,13 +135,12 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           observacion: proveedor.observacion || "",
         });
       } else {
-        // Modo crear
+        // Modo creación
         setFormData(initialFormData);
       }
     }
   }, [isOpen, proveedor]);
 
-  // Carga de catálogos
   const cargarCatalogos = async () => {
     try {
       const [
@@ -187,7 +179,6 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
     }
   };
 
-  // Lazy load deptos
   const handleFocusDepartamento = async () => {
     if (!departamentosCargados) {
       try {
@@ -195,12 +186,11 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
         setDepartamentos(data);
         setDepartamentosCargados(true);
       } catch (error) {
-        toast.error("Error al cargar departamentos");
+        toast.error("Error al cargar departamentos.");
       }
     }
   };
 
-  // Cargar ciudades al cambiar depto
   useEffect(() => {
     if (formData.departamento?.id) {
       cargarCiudades(formData.departamento.id);
@@ -215,18 +205,19 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       const data = await obtenerCiudades(depId);
       setCiudades(data);
     } catch (error) {
-      toast.error("Error al cargar ciudades");
+      toast.error("Error al cargar ciudades.");
     }
   };
 
-  // 4. Manejo de cambios
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, checked } = e.target;
 
-    // Campos que solo aceptan dígitos
-    if (["numero_documento","telefono1","telefono2","celular","whatsapp"].includes(name)) {
+    // Filtrar dígitos
+    if (
+      ["numero_documento","telefono1","telefono2","celular","whatsapp"].includes(name)
+    ) {
       const soloDigitos = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
       return;
@@ -238,19 +229,17 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       return;
     }
 
-    // Campos numéricos (selects)
-    if (
-      [
-        "tipos_persona_id",
-        "regimen_tributario_id",
-        "moneda_principal_id",
-        "tarifa_precios_id",
-        "forma_pago_id",
-        "sucursal_id",
-        "actividad_economica_id",
-        "retencion_id",
-      ].includes(name)
-    ) {
+    // Selects numéricos
+    if ([
+      "tipos_persona_id",
+      "regimen_tributario_id",
+      "moneda_principal_id",
+      "tarifa_precios_id",
+      "forma_pago_id",
+      "sucursal_id",
+      "actividad_economica_id",
+      "retencion_id",
+    ].includes(name)) {
       setFormData((prev) => ({
         ...prev,
         [name]: value === "" ? undefined : Number(value),
@@ -258,23 +247,18 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       return;
     }
 
-    // Email => permitir null
+    // Email => permitir ""
     if (name === "email") {
       setFormData((prev) => ({
         ...prev,
-        email: value.trim() === "" ? null : value,
+        email: value.trim() === "" ? "" : value,
       }));
       return;
     }
 
-    // Resto (string normal)
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Manejo de subobjetos
   const handleTipoDocumentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const found = tiposDocumento.find((td) => td.id === selectedId);
@@ -297,13 +281,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
   const handleCiudadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const c = ciudades.find((ci) => ci.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      ciudad: c,
-    }));
+    setFormData((prev) => ({ ...prev, ciudad: c }));
   };
 
-  // 5. Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -332,10 +312,12 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
 
     try {
       if (proveedor && proveedor.id) {
-        await actualizarProveedor(proveedor.id, formData);
+        // Actualizar => PATCH
+        await actualizarProveedor(proveedor.id, aplanarPayload(formData));
         toast.success("Proveedor actualizado con éxito.");
       } else {
-        await crearProveedor(formData);
+        // Crear => POST
+        await crearProveedor(aplanarPayload(formData));
         toast.success("Proveedor creado con éxito.");
       }
       setFormData(initialFormData);
@@ -349,6 +331,45 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
         toast.error("Ocurrió un error al guardar el proveedor.");
       }
     }
+  };
+
+  /**
+   * Función para "aplanar" el formData (con subobjetos)
+   * y obtener { tipo_documento_id, departamento_id, ciudad_id, ... }
+   */
+  const aplanarPayload = (data: ProveedorPayload) => {
+    return {
+      // O a tu preferencia: si la org es fija => organizacion_id: 1, ...
+      organizacion_id: 1, 
+
+      tipo_documento_id: data.tipo_documento?.id,
+      numero_documento: data.numero_documento,
+      nombre_razon_social: data.nombre_razon_social,
+      email: data.email || null,
+      pagina_web: data.pagina_web || null,
+
+      departamento_id: data.departamento?.id,
+      ciudad_id: data.ciudad?.id,
+      direccion: data.direccion,
+
+      telefono1: data.telefono1,
+      telefono2: data.telefono2,
+      celular: data.celular,
+      whatsapp: data.whatsapp,
+
+      tipos_persona_id: data.tipos_persona_id,
+      regimen_tributario_id: data.regimen_tributario_id,
+      moneda_principal_id: data.moneda_principal_id,
+      tarifa_precios_id: data.tarifa_precios_id,
+      forma_pago_id: data.forma_pago_id,
+      permitir_venta: data.permitir_venta,
+      descuento: data.descuento,
+      cupo_credito: data.cupo_credito,
+      sucursal_id: data.sucursal_id,
+      actividad_economica_id: data.actividad_economica_id,
+      retencion_id: data.retencion_id,
+      observacion: data.observacion,
+    };
   };
 
   if (!isOpen) return null;
@@ -375,7 +396,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       </h2>
 
       <form onSubmit={handleSubmit}>
-        {/* Fila 1 */}
+        {/* FILA 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="tipo_documento">
@@ -427,7 +448,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 2 */}
+        {/* FILA 2 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="email">
@@ -484,7 +505,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 3 */}
+        {/* FILA 3 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="direccion">
@@ -528,7 +549,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 4 */}
+        {/* FILA 4 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="celular">
@@ -559,7 +580,6 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           <div className="hidden lg:block" />
         </div>
 
-        {/* Botón para detalles opcionales */}
         <div className="mb-3">
           <button
             type="button"
@@ -570,10 +590,10 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </button>
         </div>
 
-        {/* Sección avanzada */}
         {showAdvanced && (
           <div className="border p-3 rounded-lg mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Tipo de Persona */}
               <div>
                 <label className="label" htmlFor="tipos_persona_id">
                   Tipo de Persona
@@ -593,6 +613,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Régimen Tributario */}
               <div>
                 <label className="label" htmlFor="regimen_tributario_id">
                   Régimen Tributario
@@ -612,6 +633,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Moneda principal */}
               <div>
                 <label className="label" htmlFor="moneda_principal_id">
                   Moneda Principal
@@ -631,6 +653,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Tarifa Precios */}
               <div>
                 <label className="label" htmlFor="tarifa_precios_id">
                   Tarifa de Precios
@@ -650,6 +673,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Forma de Pago */}
               <div>
                 <label className="label" htmlFor="forma_pago_id">
                   Forma de Pago
@@ -669,6 +693,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Actividad Económica */}
               <div>
                 <label className="label" htmlFor="actividad_economica_id">
                   Actividad Económica
@@ -689,6 +714,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Retención */}
               <div>
                 <label className="label" htmlFor="retencion_id">
                   Retención
@@ -709,6 +735,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Sucursal */}
               <div>
                 <label className="label" htmlFor="sucursal_id">
                   Sucursal
@@ -728,6 +755,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
+              {/* Página web */}
               <div>
                 <label className="label" htmlFor="pagina_web">
                   Página Web
@@ -742,6 +770,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 />
               </div>
 
+              {/* Descuento */}
               <div>
                 <label className="label" htmlFor="descuento">
                   Descuento (%)
@@ -757,6 +786,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 />
               </div>
 
+              {/* Cupo de Crédito */}
               <div>
                 <label className="label" htmlFor="cupo_credito">
                   Cupo de Crédito
@@ -772,6 +802,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 />
               </div>
 
+              {/* Permitir Venta */}
               <div className="flex items-center gap-2 mt-2">
                 <input
                   type="checkbox"
@@ -785,6 +816,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </label>
               </div>
 
+              {/* Observación */}
               <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                 <label className="label" htmlFor="observacion">
                   Observación
@@ -802,7 +834,6 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         )}
 
-        {/* Botones */}
         <div className="modal-actions flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancelar

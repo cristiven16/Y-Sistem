@@ -24,7 +24,8 @@ from routes import (
     cuentas_wallet,
     chats,
     catalogos,
-    ubicaciones
+    ubicaciones,
+    planes
 )
 
 # OJO: Se quita la llamada a Base.metadata.create_all(bind=engine)
@@ -57,6 +58,7 @@ app.include_router(cuentas_wallet.router)
 app.include_router(chats.router)
 app.include_router(catalogos.router)
 app.include_router(ubicaciones.router)
+app.include_router(planes.router)
 
 # Ruta de Prueba
 @app.get("/")

@@ -9,6 +9,7 @@ from models.usuarios import Usuario, EstadoUsuario
 JWT_SECRET = os.getenv("JWT_SECRET", "secret_key")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60))
+print("DEBUG => JWT_EXPIRE_MINUTES:", JWT_EXPIRE_MINUTES)
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")

@@ -7,7 +7,8 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     func,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 from sqlalchemy.orm import relationship, validates
 import enum
@@ -66,6 +67,15 @@ class Organizacion(Base):
     # (Si ya tienes roles, usuarios, etc.)
     roles = relationship("Rol", back_populates="organizacion")
     usuarios = relationship("Usuario", back_populates="organizacion")
+
+    #plan
+    plan_id = Column(Integer, ForeignKey("planes.id"), nullable=True)
+    fecha_inicio_plan = Column(DateTime(timezone=True), nullable=True)
+    fecha_fin_plan = Column(DateTime(timezone=True), nullable=True)
+    trial_activo = Column(Boolean, default=False)
+
+    plan = relationship("Plan", back_populates="organizaciones")
+
 
     @validates('numero_documento')
     def validate_nit(self, key, value):
@@ -148,6 +158,7 @@ class Sucursal(Base):
     activa = Column(Boolean, default=True)
 
     organizacion = relationship("Organizacion", back_populates="sucursales")
+    bodegas = relationship("Bodega", back_populates="sucursal")
     departamento = relationship("Departamento", lazy="joined")
     ciudad = relationship("Ciudad", lazy="joined")
 
@@ -192,7 +203,7 @@ class CentroCosto(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     organizacion_id = Column(Integer, ForeignKey("organizaciones.id"), nullable=False)
 
-    codigo = Column(String, nullable=False, unique=True)
+    codigo = Column(String, nullable=False)
     nombre = Column(String, nullable=False)
     nivel = Column(String, nullable=True)  # "PRINCIPAL" o "SUBCENTRO"
     padre_id = Column(Integer, ForeignKey("centros_costos.id"), nullable=True)
@@ -204,8 +215,12 @@ class CentroCosto(Base):
     padre = relationship("CentroCosto", remote_side=[id], lazy="joined")
     # Una lista de subcentros
     # subcentros = relationship("CentroCosto", backref=backref("padre_costo", remote_side=[id]))
-
+    tiendas_virtuales = relationship("TiendaVirtual", back_populates="centro_costo")
     # Podrías también manejar cascadas recursivas
+    __table_args__ = (
+        # Crear la restricción única combinada
+        UniqueConstraint("organizacion_id", "codigo", name="uq_cc_org_codigo"),
+    )
 
 class Caja(Base):
     __tablename__ = "cajas"
@@ -264,10 +279,4 @@ class CuentaBancaria(Base):
     tipo_documento_rel = relationship("TipoDocumento", lazy="joined")
     divisa_rel = relationship("Moneda", lazy="joined")
 
-    #plan
-    plan_id = Column(Integer, ForeignKey("planes.id"), nullable=True)
-    fecha_inicio_plan = Column(DateTime(timezone=True), nullable=True)
-    fecha_fin_plan = Column(DateTime(timezone=True), nullable=True)
-    trial_activo = Column(Boolean, default=False)
-
-    plan = relationship("Plan", back_populates="organizaciones")
+    

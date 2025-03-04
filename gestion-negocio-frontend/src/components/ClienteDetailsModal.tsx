@@ -1,23 +1,29 @@
 import React from "react";
 import Modal from "react-modal";
-import { Cliente } from "../pages/Clientes/ClientesTypes";
+import { Sucursal } from "./sucursalesTypes";
 
 Modal.setAppElement("#root");
 
-interface ClienteDetailsModalProps {
+interface SucursalDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cliente: Cliente | null; // el cliente a visualizar
-  onEdit: (id: number) => void; // callback para abrir edición
+  sucursal: Sucursal | null;
+  onEdit?: (id: number) => void; // Por si deseas botón "Editar"
 }
 
-const ClienteDetailsModal: React.FC<ClienteDetailsModalProps> = ({
+const SucursalDetailsModal: React.FC<SucursalDetailsModalProps> = ({
   isOpen,
   onClose,
-  cliente,
-  onEdit
+  sucursal,
+  onEdit,
 }) => {
-  if (!isOpen || !cliente) return null; // si está cerrado o no hay cliente
+  if (!isOpen || !sucursal) return null;
+
+  // Podrías mostrar "N/A" en caso de null/undefined
+  const deptoName = sucursal.departamento?.nombre || "N/A";
+  const cityName = sucursal.ciudad?.nombre || "N/A";
+  const pais = sucursal.pais || "N/A";
+  const telefonos = sucursal.telefonos || "N/A";
 
   return (
     <Modal
@@ -25,7 +31,9 @@ const ClienteDetailsModal: React.FC<ClienteDetailsModalProps> = ({
       onRequestClose={onClose}
       className="modal-content relative bg-white p-6 rounded-lg shadow-lg max-h-[80vh] overflow-y-auto w-full max-w-xl"
       overlayClassName="modal"
-      contentLabel="Detalles del Cliente"
+      contentLabel="Detalles de la Sucursal"
+      shouldCloseOnOverlayClick={false}
+      shouldCloseOnEsc={false}
     >
       {/* Botón X para cerrar */}
       <button
@@ -35,47 +43,63 @@ const ClienteDetailsModal: React.FC<ClienteDetailsModalProps> = ({
         ✕
       </button>
 
-      <h2 className="text-xl font-bold mb-4 text-center">Detalles del Cliente</h2>
+      <h2 className="text-xl font-bold mb-4 text-center">Detalles de la Sucursal</h2>
 
-
-      {/* 
-        Grid responsiva:
-        - 1 columna en pantallas pequeñas 
-        - 2 columnas en >= sm (≥640px)
-      */}
+      {/* Estructura en grid, 2 columnas en pantallas >=640px */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <p><strong>ID:</strong> {cliente.id}</p>
-        <p><strong>Nombre:</strong> {cliente.nombre_razon_social}</p>
-        <p><strong>Número Documento:</strong> {cliente.numero_documento}</p>
-        <p><strong>Tipo Documento:</strong> {cliente.tipo_documento?.abreviatura}</p>
-        <p><strong>Teléfono1:</strong> {cliente.telefono1}</p>
-        <p><strong>Teléfono2:</strong> {cliente.telefono2}</p>
-        <p><strong>Celular:</strong> {cliente.celular}</p>
-        <p><strong>WhatsApp:</strong> {cliente.whatsapp}</p>
-        <p><strong>Departamento:</strong> {cliente.departamento?.nombre}</p>
-        <p><strong>Ciudad:</strong> {cliente.ciudad?.nombre}</p>
-        <p><strong>Dirección:</strong> {cliente.direccion}</p>
-        <p><strong>Email:</strong> {cliente.email}</p>
-        <p><strong>CXC:</strong> {cliente.cxc}</p>
-        {/* Añade más campos si tu schema lo permite */}
+        <p>
+          <strong>ID:</strong> {sucursal.id}
+        </p>
+        <p>
+          <strong>Nombre:</strong> {sucursal.nombre}
+        </p>
+        <p>
+          <strong>País:</strong> {pais}
+        </p>
+        <p>
+          <strong>Departamento:</strong> {deptoName}
+        </p>
+        <p>
+          <strong>Ciudad:</strong> {cityName}
+        </p>
+        <p>
+          <strong>Dirección:</strong> {sucursal.direccion || "N/A"}
+        </p>
+        <p>
+          <strong>Teléfonos:</strong> {telefonos}
+        </p>
+        <p>
+          <strong>Prefijo:</strong>{" "}
+          {sucursal.prefijo_transacciones || "N/A"}
+        </p>
+        <p>
+          <strong>Principal:</strong>{" "}
+          {sucursal.sucursal_principal ? "Sí" : "No"}
+        </p>
+        <p>
+          <strong>Activa:</strong> {sucursal.activa ? "Sí" : "No"}
+        </p>
+        {/* Agrega más campos si tu backend/sucursal los provee */}
       </div>
 
       <div className="flex justify-end gap-3 mt-4">
         <button onClick={onClose} className="btn-secondary">
           Cerrar
         </button>
-        <button
-          onClick={() => {
-            onClose();       // Cierro modal de detalle
-            onEdit(cliente.id); // Abro modal de edición
-          }}
-          className="btn-primary bg-blue-600"
-        >
-          Editar
-        </button>
+        {onEdit && (
+          <button
+            onClick={() => {
+              onClose();
+              onEdit(sucursal.id);
+            }}
+            className="btn-primary bg-blue-600"
+          >
+            Editar
+          </button>
+        )}
       </div>
     </Modal>
   );
 };
 
-export default ClienteDetailsModal;
+export default SucursalDetailsModal;

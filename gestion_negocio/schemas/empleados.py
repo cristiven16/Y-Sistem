@@ -43,7 +43,7 @@ class EmpleadoBase(BaseModel):
 
     departamento_id: int
     ciudad_id: int
-    direccion: str = Field(..., min_length=5)
+    direccion: str = Field(..., min_length=1)
 
     sucursal_id: int
 

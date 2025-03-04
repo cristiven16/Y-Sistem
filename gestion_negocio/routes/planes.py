@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.planes import Plan
 from schemas.plan_schemas import PlanCreate, PlanRead
-from dependencies.auth import get_current_user
+from dependencies.auth import get_current_user, role_required, ROLE_SUPERADMIN
 
-router = APIRouter(prefix="/planes", tags=["Planes"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/planes", tags=["Planes"], dependencies=[Depends(get_current_user), Depends(role_required([ROLE_SUPERADMIN]))])
 
 @router.post("/", response_model=PlanRead)
 def create_plan(data: PlanCreate, db: Session = Depends(get_db)):

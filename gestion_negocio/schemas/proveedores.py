@@ -33,7 +33,7 @@ class ProveedorSchema(BaseModel):
     # Ubicación
     departamento_id: int
     ciudad_id: int
-    direccion: str = Field(..., min_length=5)
+    direccion: str = Field(..., min_length=1)
     telefono1: Optional[str] = None
     telefono2: Optional[str] = None
     celular: Optional[str] = None

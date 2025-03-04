@@ -14,7 +14,7 @@ from dependencies.auth import get_current_user
 from datetime import datetime
 from services.dv_calculator import calc_dv_if_nit
 
-router = APIRouter(prefix="/clientes", tags=["Clientes"])
+router = APIRouter(prefix="/clientes", tags=["Clientes"], dependencies=[Depends(get_current_user)])
 
 def normalize_text(text: str) -> str:
     return (text.replace("á", "a")

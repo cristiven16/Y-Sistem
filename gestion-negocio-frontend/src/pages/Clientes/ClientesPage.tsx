@@ -1,13 +1,24 @@
+// src/pages/Clientes/ClientesPage.tsx
 import React, { useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import axios from "axios";
-import { toast } from "react-toastify"; // <--- Importar toast
+import { toast } from "react-toastify";
 
 import ClientesTable from "./ClientesTable";
 import ClienteForm from "./ClienteForm";
 import ClienteDetailsModal from "../../components/ClienteDetailsModal";
-import ConfirmModal from "../../components/ConfirmModal"; 
+import ConfirmModal from "../../components/ConfirmModal";
 
+// Importa tus funciones de clientesAPI
+import { 
+  getClientes,
+  deleteCliente,
+} from "../../api/clientesAPI";
+
+/**
+ * Ajusta la interfaz para tu tabla, 
+ * o reutiliza "ClienteResponse" de clientesTypes.ts 
+ * si prefieres un tipado más completo.
+ */
 interface Cliente {
   id: number;
   nombre_razon_social: string;
@@ -16,14 +27,12 @@ interface Cliente {
   // ... más campos si lo requieres ...
 }
 
-const API_URL = "http://localhost:8000/clientes";
-
 const ClientesPage: React.FC = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [page, setPage] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
 
-  // Búsqueda y estado de feedback
+  // Búsqueda y estado
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,19 +45,24 @@ const ClientesPage: React.FC = () => {
 
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
 
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // Carga de clientes
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   const fetchClientes = async (pageNumber: number, searchText: string) => {
     try {
       setLoading(true);
       setError(null);
-      const resp = await axios.get(`${API_URL}`, {
-        params: { page: pageNumber, search: searchText },
-      });
-      setClientes(resp.data.data);
-      setPage(resp.data.page);
-      setTotalPaginas(resp.data.total_paginas);
+
+      // Llamamos a getClientes(...) en lugar de axios.get(...)
+      // getClientes retorna { data, page, total_paginas, total_registros }
+      const resp = await getClientes(searchText, pageNumber, 10); // page_size=10 (ajusta si quieres)
+      
+      // resp.data => array de clientes
+      // resp.page => número de página actual
+      // resp.total_paginas => total de páginas
+      setClientes(resp.data);
+      setPage(resp.page);
+      setTotalPaginas(resp.total_paginas);
     } catch (err) {
       console.error(err);
       setError("Error al cargar clientes");
@@ -57,30 +71,31 @@ const ClientesPage: React.FC = () => {
     }
   };
 
-  // Al montar
+  // Cargar sin filtro la primera vez
   useEffect(() => {
     fetchClientes(1, "");
   }, []);
 
-  // Cada vez que cambie la búsqueda
+  // Si cambia 'search', recargamos desde página 1
   useEffect(() => {
     fetchClientes(1, search);
   }, [search]);
 
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // Manejo de búsqueda
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
 
+  // Ir a otra página
   const goToPage = (pageNumber: number) => {
     fetchClientes(pageNumber, search);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // Eliminar (abrir confirm modal)
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // Eliminar
+  // ─────────────────────────────────────────────────────────
   const handleDeleteCliente = (id: number) => {
     const found = clientes.find((c) => c.id === id) || null;
     setSelectedCliente(found);
@@ -90,39 +105,39 @@ const ClientesPage: React.FC = () => {
   const confirmDelete = async () => {
     if (!selectedCliente) return;
     try {
-      await axios.delete(`${API_URL}/${selectedCliente.id}`);
-      toast.success("Cliente eliminado con éxito."); // <--- Notificación de éxito
-      fetchClientes(page, search);
+      await deleteCliente(selectedCliente.id);
+      toast.success("Cliente eliminado con éxito.");
+      fetchClientes(page, search); // recargar la lista en la misma página
     } catch (error) {
       console.error("Error al eliminar cliente:", error);
-      toast.error("Ocurrió un error al eliminar el cliente."); // Notificación de error
+      toast.error("Ocurrió un error al eliminar el cliente.");
     } finally {
       setIsConfirmOpen(false);
       setSelectedCliente(null);
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // Ver detalles
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   const handleViewDetails = (id: number) => {
     const found = clientes.find((c) => c.id === id) || null;
     setSelectedCliente(found);
     setIsDetailsOpen(true);
   };
 
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // Editar
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   const handleEdit = (id: number) => {
     const found = clientes.find((c) => c.id === id) || null;
     setSelectedCliente(found);
     setIsEditOpen(true);
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // Cerrar todos modales
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // Cerrar modales
+  // ─────────────────────────────────────────────────────────
   const closeModals = () => {
     setIsCreateOpen(false);
     setIsDetailsOpen(false);
@@ -131,9 +146,9 @@ const ClientesPage: React.FC = () => {
     setSelectedCliente(null);
   };
 
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // Render
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Clientes</h1>
@@ -174,11 +189,11 @@ const ClientesPage: React.FC = () => {
           )}
 
           {/* Paginación */}
-          <div className="pagination mt-4">
+          <div className="pagination mt-4 flex gap-2">
             <button
               onClick={() => goToPage(Math.max(page - 1, 1))}
               disabled={page === 1}
-              className={"page-btn " + (page === 1 ? "page-btn-disabled" : "")}
+              className="page-btn"
             >
               Anterior
             </button>
@@ -200,9 +215,7 @@ const ClientesPage: React.FC = () => {
             <button
               onClick={() => goToPage(Math.min(page + 1, totalPaginas))}
               disabled={page === totalPaginas}
-              className={
-                "page-btn " + (page === totalPaginas ? "page-btn-disabled" : "")
-              }
+              className="page-btn"
             >
               Siguiente
             </button>
@@ -210,11 +223,12 @@ const ClientesPage: React.FC = () => {
         </>
       )}
 
-      {/* Modal Crear */}
+      {/* Modal Crear Cliente */}
       <ClienteForm
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSuccess={() => {
+          // recarga la lista
           fetchClientes(page, search);
         }}
       />
@@ -233,7 +247,7 @@ const ClientesPage: React.FC = () => {
       {/* Modal Editar */}
       <ClienteForm
         isOpen={isEditOpen}
-        cliente={selectedCliente}
+        cliente={selectedCliente} // pasa el cliente seleccionado
         onClose={closeModals}
         onSuccess={() => {
           fetchClientes(page, search);

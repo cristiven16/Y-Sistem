@@ -10,3 +10,4 @@ from .chats import router as chats_router
 from .organizations import router as organizations_router
 from .roles import router as roles_router
 from .users import router as users_router
+from .planes import router as planes_router

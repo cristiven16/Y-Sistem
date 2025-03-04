@@ -2,7 +2,7 @@ from database import SessionLocal
 from models.catalogos import (
     TipoDocumento, RegimenTributario, TipoPersona, Moneda, TarifaPrecios, 
     ActividadEconomica, FormaPago, Retencion, TipoMarketing, 
-    Sucursal, RutaLogistica, Vendedor
+    RutaLogistica,
 )
 
 # Crear una sesión de base de datos
@@ -24,9 +24,8 @@ verificar_y_insertar(ActividadEconomica, [{"nombre": "Comercio al por menor"}])
 verificar_y_insertar(FormaPago, [{"nombre": "Contado"}])
 verificar_y_insertar(Retencion, [{"nombre": "No aplica"}])
 verificar_y_insertar(TipoMarketing, [{"nombre": "Facebook"}])
-verificar_y_insertar(Sucursal, [{"nombre": "Principal"}])
 verificar_y_insertar(RutaLogistica, [{"nombre": "Ruta 1"}])
-verificar_y_insertar(Vendedor, [{"nombre": "Vendedor Genérico", "identificacion": "000000000"}])
+
 
 # Confirmar cambios en la base de datos
 db.commit()

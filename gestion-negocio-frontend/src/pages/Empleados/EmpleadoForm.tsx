@@ -1,12 +1,17 @@
+// src/pages/Empleados/EmpleadoForm.tsx
+
 import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import { toast } from "react-toastify";
 import {
   crearEmpleado,
-  actualizarEmpleado,
+  actualizarEmpleadoCompleto,
   obtenerTiposDocumento,
 } from "../../api/empleadosAPI";
-import { obtenerDepartamentos, obtenerCiudades } from "../../api/ubicacionesAPI";
+import {
+  obtenerDepartamentos,
+  obtenerCiudades
+} from "../../api/ubicacionesAPI";
 
 // Tipos
 import {
@@ -27,10 +32,13 @@ function capitalizeWords(str: string) {
     .join(" ");
 }
 
+// Ajusta el initialForm para que tenga todos los campos que tu backend requiere
 const initialForm: EmpleadoPayload = {
-  // No uses ID=0 si tu backend no lo requiere
-  id: undefined, 
-  tipo_documento: undefined,
+  // El backend exige organizacion_id
+  organizacion_id: 1,
+
+  tipo_documento_id: 0,
+  dv: null, // lo calculas o lo dejas en null
   numero_documento: "",
   nombre_razon_social: "",
   email: null,
@@ -43,20 +51,23 @@ const initialForm: EmpleadoPayload = {
   tipos_persona_id: 1,
   regimen_tributario_id: 5,
   moneda_principal_id: 1,
-  actividad_economica_id: undefined,
+  actividad_economica_id: null,
   forma_pago_id: 1,
-  retencion_id: undefined,
-  
-  departamento: undefined,
-  ciudad: undefined,
+  retencion_id: null,
+
+  departamento_id: 0,
+  ciudad_id: 0,
   direccion: "",
   sucursal_id: 1,
-  observacion: "",
-  cargo: "",
-  fecha_nacimiento: "",
-  fecha_ingreso: "",
+
+  cargo: null,
+  fecha_nacimiento: null,
+  fecha_ingreso: null,
+
   activo: true,
   es_vendedor: false,
+
+  observacion: null
 };
 
 interface EmpleadoFormProps {
@@ -72,48 +83,56 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
   onSuccess,
   empleado,
 }) => {
+  // Catálogos
   const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [departamentosCargados, setDepartamentosCargados] = useState(false);
 
+  // Form
   const [formData, setFormData] = useState<EmpleadoPayload>(initialForm);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       cargarCatalogos();
+
       if (empleado) {
-        // EDIT
+        // Modo edición => mapear Empleado => EmpleadoPayload
         setFormData({
-          id: empleado.id,
-          tipo_documento: empleado.tipo_documento || undefined,
+          organizacion_id: empleado.organizacion_id,
+          tipo_documento_id: empleado.tipo_documento_id,
+          dv: empleado.dv ?? null,
           numero_documento: empleado.numero_documento,
           nombre_razon_social: empleado.nombre_razon_social,
           email: empleado.email ?? null,
-          departamento: empleado.departamento,
-          ciudad: empleado.ciudad,
-          direccion: empleado.direccion,
+
           telefono1: empleado.telefono1 || "",
           telefono2: empleado.telefono2 || "",
           celular: empleado.celular || "",
           whatsapp: empleado.whatsapp || "",
+
           tipos_persona_id: empleado.tipos_persona_id,
           regimen_tributario_id: empleado.regimen_tributario_id,
           moneda_principal_id: empleado.moneda_principal_id,
-          actividad_economica_id: empleado.actividad_economica_id ?? undefined,
+          actividad_economica_id: empleado.actividad_economica_id ?? null,
           forma_pago_id: empleado.forma_pago_id,
-          retencion_id: empleado.retencion_id ?? undefined,
+          retencion_id: empleado.retencion_id ?? null,
+
+          departamento_id: empleado.departamento_id,
+          ciudad_id: empleado.ciudad_id,
+          direccion: empleado.direccion,
           sucursal_id: empleado.sucursal_id,
-          observacion: empleado.observacion || "",
-          cargo: empleado.cargo || "",
-          fecha_nacimiento: empleado.fecha_nacimiento || "",
-          fecha_ingreso: empleado.fecha_ingreso || "",
+
+          cargo: empleado.cargo ?? null,
+          fecha_nacimiento: empleado.fecha_nacimiento ?? null,
+          fecha_ingreso: empleado.fecha_ingreso ?? null,
           activo: empleado.activo,
           es_vendedor: empleado.es_vendedor,
+          observacion: empleado.observacion ?? null
         });
       } else {
-        // CREATE
+        // Modo creación
         setFormData(initialForm);
       }
     }
@@ -142,13 +161,13 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
   };
 
   useEffect(() => {
-    if (formData.departamento?.id) {
-      cargarCiudades(formData.departamento.id);
+    if (formData.departamento_id) {
+      cargarCiudades(formData.departamento_id);
     } else {
       setCiudades([]);
-      setFormData((prev) => ({ ...prev, ciudad: undefined }));
+      setFormData((prev) => ({ ...prev, ciudad_id: 0 }));
     }
-  }, [formData.departamento?.id]);
+  }, [formData.departamento_id]);
 
   const cargarCiudades = async (depId: number) => {
     try {
@@ -160,41 +179,51 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value, checked } = e.target;
 
-    // Filtrar dígitos
-    if (["numero_documento","telefono1","telefono2","celular","whatsapp"].includes(name)) {
+    // Filtrar dígitos en ciertos campos
+    if (
+      ["numero_documento", "telefono1", "telefono2", "celular", "whatsapp"].includes(name)
+    ) {
       const soloDigitos = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
       return;
     }
 
-    // Checkboxes
-    if (name === "activo" || name === "es_vendedor") {
+    // Checkbox: activo, es_vendedor
+    if (["activo", "es_vendedor"].includes(name)) {
       setFormData((prev) => ({ ...prev, [name]: checked }));
       return;
     }
 
-    // IDs numéricos
-    if ([
-      "tipos_persona_id",
-      "regimen_tributario_id",
-      "moneda_principal_id",
-      "actividad_economica_id",
-      "forma_pago_id",
-      "retencion_id",
-      "sucursal_id",
-    ].includes(name)) {
+    // Campos numéricos (IDs)
+    if (
+      [
+        "organizacion_id",
+        "tipo_documento_id",
+        "tipos_persona_id",
+        "regimen_tributario_id",
+        "moneda_principal_id",
+        "actividad_economica_id",
+        "forma_pago_id",
+        "retencion_id",
+        "departamento_id",
+        "ciudad_id",
+        "sucursal_id"
+      ].includes(name)
+    ) {
       setFormData((prev) => ({
         ...prev,
-        [name]: value === "" ? undefined : Number(value),
+        [name]: value === "" ? 0 : Number(value),
       }));
       return;
     }
 
-    // Email => null
+    // Email => null si vacío
     if (name === "email") {
       setFormData((prev) => ({
         ...prev,
@@ -203,110 +232,66 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
       return;
     }
 
+    // Fecha => si es "", mandamos null
+    if (["fecha_nacimiento", "fecha_ingreso"].includes(name)) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value === "" ? null : value,
+      }));
+      return;
+    }
+
+    // dv, cargo, observacion => si "" => null
+    if (["dv", "cargo", "observacion"].includes(name)) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value.trim() === "" ? null : value,
+      }));
+      return;
+    }
+
+    // Resto de campos
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleTipoDocumentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = Number(e.target.value);
-    const found = tiposDocumento.find((td) => td.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      tipo_documento: found,
-    }));
-  };
-
-  const handleDepartamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = Number(e.target.value);
-    const dep = departamentos.find((d) => d.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      departamento: dep,
-      ciudad: undefined,
-    }));
-  };
-
-  const handleCiudadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = Number(e.target.value);
-    const c = ciudades.find((ci) => ci.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      ciudad: c,
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validaciones mínimas
+    if (!formData.tipo_documento_id) {
+      toast.error("Debe seleccionar el tipo de documento.");
+      return;
+    }
     if (!formData.numero_documento || !formData.nombre_razon_social) {
       toast.error("Documento y Nombre son obligatorios.");
       return;
     }
-    if (!formData.telefono1 && !formData.telefono2 && !formData.celular && !formData.whatsapp) {
+    if (
+      !formData.telefono1 &&
+      !formData.telefono2 &&
+      !formData.celular &&
+      !formData.whatsapp
+    ) {
       toast.error("Debe ingresar al menos un teléfono o celular.");
       return;
     }
-    if (!formData.departamento) {
+    if (!formData.departamento_id) {
       toast.error("Debe seleccionar un departamento.");
       return;
     }
-    if (!formData.ciudad) {
+    if (!formData.ciudad_id) {
       toast.error("Debe seleccionar una ciudad.");
       return;
     }
 
-    // Armar payload
-    const payload = {
-      // si tu backend ignora "id" en POST, no pasa nada si lo envías
-      id: formData.id ?? 0, 
-      tipo_documento: formData.tipo_documento
-        ? {
-            id: formData.tipo_documento.id,
-            nombre: formData.tipo_documento.nombre,
-            abreviatura: formData.tipo_documento.abreviatura,
-          }
-        : null,
-      numero_documento: formData.numero_documento,
-      nombre_razon_social: formData.nombre_razon_social,
-      email: formData.email,
-      telefono1: formData.telefono1,
-      telefono2: formData.telefono2,
-      celular: formData.celular,
-      whatsapp: formData.whatsapp,
-      tipos_persona_id: formData.tipos_persona_id ?? 1,
-      regimen_tributario_id: formData.regimen_tributario_id ?? 5,
-      moneda_principal_id: formData.moneda_principal_id ?? 1,
-      actividad_economica_id: formData.actividad_economica_id ?? null,
-      forma_pago_id: formData.forma_pago_id ?? 1,
-      retencion_id: formData.retencion_id ?? null,
-      departamento: formData.departamento
-        ? {
-            id: formData.departamento.id,
-            nombre: formData.departamento.nombre,
-          }
-        : null,
-      ciudad: formData.ciudad
-        ? {
-            id: formData.ciudad.id,
-            nombre: formData.ciudad.nombre,
-          }
-        : null,
-      direccion: formData.direccion,
-      sucursal_id: formData.sucursal_id ?? 1,
-      observacion: formData.observacion,
-      cargo: formData.cargo,
-      fecha_nacimiento: formData.fecha_nacimiento || null,
-      fecha_ingreso: formData.fecha_ingreso || null,
-      activo: formData.activo,
-      es_vendedor: formData.es_vendedor,
-    };
-
     try {
       if (empleado && empleado.id) {
-        await actualizarEmpleado(empleado.id, payload);
+        // Actualización COMPLETA => PUT
+        await actualizarEmpleadoCompleto(empleado.id, formData);
         toast.success("Empleado actualizado con éxito.");
       } else {
-        await crearEmpleado(payload);
+        // Creación => POST
+        await crearEmpleado(formData);
         toast.success("Empleado creado con éxito.");
       }
 
@@ -347,16 +332,17 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
       </h2>
 
       <form onSubmit={handleSubmit}>
-        {/* Fila 1 */}
+        {/* FILA 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="label" htmlFor="tipo_documento">
+            <label className="label" htmlFor="tipo_documento_id">
               Tipo de Documento
             </label>
             <select
-              id="tipo_documento"
-              value={formData.tipo_documento?.id || ""}
-              onChange={handleTipoDocumentoChange}
+              id="tipo_documento_id"
+              name="tipo_documento_id"
+              value={formData.tipo_documento_id || ""}
+              onChange={handleChange}
               className="input-field"
             >
               <option value="">-- Seleccione --</option>
@@ -399,7 +385,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 2 */}
+        {/* FILA 2 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="email">
@@ -416,14 +402,15 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           </div>
 
           <div>
-            <label className="label" htmlFor="departamento">
+            <label className="label" htmlFor="departamento_id">
               Departamento
             </label>
             <select
-              id="departamento"
+              id="departamento_id"
+              name="departamento_id"
               onFocus={handleFocusDepartamento}
-              onChange={handleDepartamentoChange}
-              value={formData.departamento?.id || ""}
+              onChange={handleChange}
+              value={formData.departamento_id || ""}
               className="input-field"
             >
               <option value="">-- Seleccione --</option>
@@ -436,15 +423,16 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           </div>
 
           <div>
-            <label className="label" htmlFor="ciudad">
+            <label className="label" htmlFor="ciudad_id">
               Ciudad
             </label>
             <select
-              id="ciudad"
-              onChange={handleCiudadChange}
-              value={formData.ciudad?.id || ""}
+              id="ciudad_id"
+              name="ciudad_id"
+              onChange={handleChange}
+              value={formData.ciudad_id || ""}
               className="input-field"
-              disabled={!formData.departamento}
+              disabled={!formData.departamento_id}
             >
               <option value="">-- Seleccione --</option>
               {ciudades.map((c) => (
@@ -456,7 +444,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 3 */}
+        {/* FILA 3 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="direccion">
@@ -500,7 +488,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           </div>
         </div>
 
-        {/* Fila 4 */}
+        {/* FILA 4 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label" htmlFor="celular">
@@ -554,13 +542,16 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           </div>
         </div>
 
+        {/* BOTÓN MOSTRAR DETALLES OPCIONALES */}
         <div className="mb-3">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="btn-secondary"
           >
-            {showAdvanced ? "Ocultar detalles opcionales" : "Mostrar detalles opcionales"}
+            {showAdvanced
+              ? "Ocultar detalles opcionales"
+              : "Mostrar detalles opcionales"}
           </button>
         </div>
 
@@ -575,7 +566,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
                   type="text"
                   id="cargo"
                   name="cargo"
-                  value={formData.cargo || ""}
+                  value={formData.cargo ?? ""}
                   onChange={handleChange}
                   className="input-field"
                 />
@@ -588,7 +579,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
                   type="date"
                   id="fecha_nacimiento"
                   name="fecha_nacimiento"
-                  value={formData.fecha_nacimiento || ""}
+                  value={formData.fecha_nacimiento ?? ""}
                   onChange={handleChange}
                   className="input-field"
                 />
@@ -601,7 +592,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
                   type="date"
                   id="fecha_ingreso"
                   name="fecha_ingreso"
-                  value={formData.fecha_ingreso || ""}
+                  value={formData.fecha_ingreso ?? ""}
                   onChange={handleChange}
                   className="input-field"
                 />
@@ -614,7 +605,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
                 <textarea
                   id="observacion"
                   name="observacion"
-                  value={formData.observacion || ""}
+                  value={formData.observacion ?? ""}
                   onChange={handleChange}
                   className="input-field"
                   rows={2}

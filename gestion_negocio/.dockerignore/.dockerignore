@@ -1,0 +1,13 @@
+# Ignorar control de versiones
+.git
+.gitignore
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Entornos virtuales
+venv/
+env/
+.venv/
