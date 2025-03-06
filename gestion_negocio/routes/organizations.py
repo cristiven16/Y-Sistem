@@ -14,7 +14,7 @@ from models.organizaciones import (
     Bodega,
     Caja,
     TiendaVirtual,
-    CentroCosto
+    CentroCosto, NumeracionTransaccion
 )
 
 from models.planes import Plan
@@ -25,7 +25,8 @@ from schemas.org_schemas import (
     CajaCreate, CajaRead, PaginatedCajas,
     TiendaVirtualCreate, TiendaVirtualRead,
     CentroCostoCreate, CentroCostoRead, PaginatedCentrosCostos,
-    PaginatedSucursales, SucursalUpdate, PaginatedBodegas
+    PaginatedSucursales, SucursalUpdate, PaginatedBodegas,
+    NumeracionTransaccionBase, NumeracionTransaccionCreate, NumeracionTransaccionRead,PaginatedNumeraciones
 )
 from dependencies.auth import (
     get_current_user,
@@ -1126,3 +1127,184 @@ def delete_tienda_virtual(
     db.commit()
     log_event(db, current_user.id, "TIENDA_DELETED", f"Tienda Virtual {tienda_id} eliminada de Org {org_id}")
     return {"message": f"Tienda Virtual {tienda_id} eliminada con éxito."}
+
+#
+# =============================================================================
+#                           NUMERACIONES DE TRANSACCION 
+# =============================================================================
+#
+
+@router.post("/{org_id}/numeraciones",
+    response_model=NumeracionTransaccionRead,
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
+def create_numeracion_transaccion(
+    org_id: int,
+    data: NumeracionTransaccionCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Crea una nueva Numeración de Transacción para la org {org_id}.
+    """
+    org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
+    if not org:
+        raise HTTPException(404, "Organización no encontrada")
+
+    if data.organizacion_id != org_id:
+        raise HTTPException(400, "El organizacion_id no coincide con la URL")
+
+    # Si es por_defecto => desactivar en las demás numeraciones de la misma org
+    if data.numeracion_por_defecto:
+        db.query(NumeracionTransaccion).filter(
+            NumeracionTransaccion.organizacion_id == org_id
+        ).update({NumeracionTransaccion.numeracion_por_defecto: False})
+        db.commit()
+
+    nueva_num = NumeracionTransaccion(
+        organizacion_id=org_id,
+        tipo_transaccion=data.tipo_transaccion,
+        nombre_personalizado=data.nombre_personalizado,
+        titulo_transaccion=data.titulo_transaccion,
+        mostrar_info_numeracion=data.mostrar_info_numeracion,
+        separador_prefijo=data.separador_prefijo or "",
+        titulo_numeracion=data.titulo_numeracion,
+        longitud_numeracion=data.longitud_numeracion,
+        numeracion_por_defecto=data.numeracion_por_defecto,
+        numero_resolucion=data.numero_resolucion,
+        fecha_expedicion=data.fecha_expedicion,
+        fecha_vencimiento=data.fecha_vencimiento,
+        prefijo=data.prefijo,
+        numeracion_inicial=data.numeracion_inicial,
+        numeracion_final=data.numeracion_final,
+        numeracion_siguiente=data.numeracion_siguiente,
+        total_maximo_por_transaccion=data.total_maximo_por_transaccion,
+        transaccion_electronica=data.transaccion_electronica
+    )
+    db.add(nueva_num)
+    db.commit()
+    db.refresh(nueva_num)
+    return nueva_num
+
+@router.get("/{org_id}/numeraciones", response_model=PaginatedNumeraciones)
+def list_numeraciones_transaccion(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    search: Optional[str] = Query(None),
+    page: int = 1,
+    page_size: int = 10
+):
+    """
+    Lista paginada de numeraciones. Se puede buscar en 'nombre_personalizado' o 'titulo_transaccion'.
+    """
+    org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
+    if not org:
+        raise HTTPException(404, "Organización no encontrada")
+
+    query = db.query(NumeracionTransaccion).filter(
+        NumeracionTransaccion.organizacion_id == org_id
+    )
+
+    if search:
+        search_like = f"%{search}%"
+        query = query.filter(or_(
+            NumeracionTransaccion.nombre_personalizado.ilike(search_like),
+            NumeracionTransaccion.titulo_transaccion.ilike(search_like)
+        ))
+
+    total_registros = query.count()
+    total_paginas = max((total_registros + page_size - 1) // page_size, 1)
+    if page > total_paginas:
+        page = total_paginas
+
+    offset = (page - 1) * page_size
+    nums_db = query.offset(offset).limit(page_size).all()
+
+    data = [NumeracionTransaccionRead.from_orm(n) for n in nums_db]
+    return {
+        "data": data,
+        "page": page,
+        "total_paginas": total_paginas,
+        "total_registros": total_registros
+    }
+
+@router.get("/{org_id}/numeraciones/{num_id}", response_model=NumeracionTransaccionRead)
+def get_numeracion_transaccion(
+    org_id: int,
+    num_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Retorna la numeración {num_id} de la organización {org_id}.
+    """
+    num = db.query(NumeracionTransaccion).filter(
+        NumeracionTransaccion.id == num_id,
+        NumeracionTransaccion.organizacion_id == org_id
+    ).first()
+    if not num:
+        raise HTTPException(404, "Numeración no encontrada.")
+    return num
+
+@router.put("/{org_id}/numeraciones/{num_id}",
+    response_model=NumeracionTransaccionRead,
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
+def update_numeracion_transaccion(
+    org_id: int,
+    num_id: int,
+    data: NumeracionTransaccionCreate,  # Podrías crear un "NumeracionTransaccionUpdate" si deseas
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Actualiza la Numeración {num_id} de la org {org_id}.
+    """
+    num = db.query(NumeracionTransaccion).filter(
+        NumeracionTransaccion.id == num_id,
+        NumeracionTransaccion.organizacion_id == org_id
+    ).first()
+    if not num:
+        raise HTTPException(404, "Numeración no encontrada.")
+
+    fields = data.dict(exclude_unset=True)
+
+    if "organizacion_id" in fields and fields["organizacion_id"] != org_id:
+        raise HTTPException(400, "El organizacion_id no coincide con la URL")
+
+    # Si numeracion_por_defecto = True => desactivamos en las otras
+    if fields.get("numeracion_por_defecto", False) is True:
+        db.query(NumeracionTransaccion).filter(
+            NumeracionTransaccion.organizacion_id == org_id,
+            NumeracionTransaccion.id != num_id
+        ).update({NumeracionTransaccion.numeracion_por_defecto: False})
+        db.commit()
+
+    # Asignar campos
+    for key, value in fields.items():
+        setattr(num, key, value)
+
+    db.commit()
+    db.refresh(num)
+    return num
+
+@router.delete("/{org_id}/numeraciones/{num_id}",
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
+def delete_numeracion_transaccion(
+    org_id: int,
+    num_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Elimina la Numeración {num_id} de la org {org_id}.
+    """
+    num = db.query(NumeracionTransaccion).filter(
+        NumeracionTransaccion.id == num_id,
+        NumeracionTransaccion.organizacion_id == org_id
+    ).first()
+    if not num:
+        raise HTTPException(404, "Numeración no encontrada.")
+
+    db.delete(num)
+    db.commit()
+    return {"message": f"Numeración {num_id} eliminada con éxito."}

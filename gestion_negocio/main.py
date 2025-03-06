@@ -34,6 +34,7 @@ from routes import (
 # Inicializar FastAPI
 app = FastAPI(title="API de Gestión Empresarial", version="1.0")
 
+
 # Configurar CORS (si se conecta con frontend)
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +43,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Incluir Rutas
 app.include_router(auth.router)

@@ -51,8 +51,8 @@ class NumeracionTransaccionBase(BaseModel):
     longitud_numeracion: Optional[int] = None
     numeracion_por_defecto: bool = False
     numero_resolucion: Optional[str] = None
-    fecha_expedicion: Optional[str] = None
-    fecha_vencimiento: Optional[str] = None
+    fecha_expedicion: Optional[datetime] = None  # Puedes usar datetime
+    fecha_vencimiento: Optional[datetime] = None
     prefijo: Optional[str] = None
     numeracion_inicial: int
     numeracion_final: int
@@ -67,8 +67,17 @@ class NumeracionTransaccionRead(NumeracionTransaccionBase):
     id: int
     organizacion_id: int  # para reflejar la org
     # Anidar la sucursal
-    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
+    #sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
     
+    class Config:
+        from_attributes = True
+
+class PaginatedNumeraciones(BaseModel):
+    data: List[NumeracionTransaccionRead]
+    page: int
+    total_paginas: int
+    total_registros: int
+
     class Config:
         from_attributes = True
 

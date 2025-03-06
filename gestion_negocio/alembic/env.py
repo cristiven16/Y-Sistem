@@ -1,26 +1,40 @@
 # gestion_negocio/alembic/env.py
 
+import os
+import sys
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-import sys
-import os
 
-# 1) Agregar la carpeta padre al sys.path para poder importar "models" correctamente
+# NUEVO: Cargar dotenv
+from dotenv import load_dotenv
+load_dotenv()  # Esto cargará variables definidas en tu archivo .env local
+
+# Ajustar sys.path si es necesario para que "models" se importe correctamente
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# 2) Importar Base desde models/__init__.py
-from models import Base  # <--- Este Base engloba todos los modelos ya registrados
+# Importar Base
+from models import Base  # Asegúrate de que models/__init__.py define Base
 
 config = context.config
-
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# 3) El target_metadata es Base.metadata
 target_metadata = Base.metadata
 
+# Construir la URL desde variables de entorno
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME = os.getenv("DB_NAME", "gestion_empresarial")
+
+DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+config.set_main_option("sqlalchemy.url", DB_URL)
+
 def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -32,6 +46,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -41,7 +56,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True  # si deseas comparar tipos
+            compare_type=True
         )
         with context.begin_transaction():
             context.run_migrations()
