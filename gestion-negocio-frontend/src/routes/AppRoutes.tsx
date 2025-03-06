@@ -16,6 +16,7 @@ import PlanesPage from "../pages/SuperAdmin/Planes/PlanesPage";
 import SucursalesPage from "../pages/Sucursales/SucursalesPage";
 import BodegasPage from "../pages/Bodegas/BodegasPage";
 import CajasPage from "../pages/Cajas/CajasPage";
+import CentrosCostosPage from "../pages/CentroCostos/CentrosCostosPage";
 
 export default function AppRoutes() {
   return (
@@ -94,6 +95,15 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
             <CajasPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/centros-costos"
+        element={
+          <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
+            <CentrosCostosPage />
           </ProtectedRoute>
         }
       />

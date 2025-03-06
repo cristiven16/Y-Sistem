@@ -5,7 +5,7 @@ import Modal from "react-modal";
 import { toast } from "react-toastify";
 import { Caja, CajaPayload } from "./cajasTypes";
 import { crearCaja, actualizarCaja } from "../../api/cajasAPI";
-import { getSucursales } from "../../api/sucursalesAPI"; // Ajusta la ruta
+import { getSucursales } from "../../api/sucursalesAPI";
 import { useAuth } from "../../hooks/useAuth";
 
 // Interfaz de Sucursal mínima, para el select
@@ -42,8 +42,9 @@ const CajaForm: React.FC<CajaFormProps> = ({
 }) => {
   const [formData, setFormData] = useState<CajaPayload>(initialForm);
   const [sucursales, setSucursales] = useState<SucursalItem[]>([]);
+  const [loading, setLoading] = useState(false); // Estado para deshabilitar el botón
 
-  // Cargar sucursales
+  // Cargar sucursales al abrir
   useEffect(() => {
     if (isOpen) {
       loadSucursales(organizacionId);
@@ -69,9 +70,8 @@ const CajaForm: React.FC<CajaFormProps> = ({
 
   async function loadSucursales(orgId: number) {
     try {
-      const data = await getSucursales(orgId); // GET /organizations/{orgId}/sucursales => array
-      // Si tu backend retorna { data, page, ... } deberías usar data.data
-      // pero supongo devuelves array directo => adaptarlo si es distinto
+      const data = await getSucursales(orgId);
+      // Ajusta si tu backend no devuelve { data } sino un array directamente:
       setSucursales(data.data || data); 
     } catch (err) {
       console.error("Error al cargar sucursales:", err);
@@ -95,6 +95,11 @@ const CajaForm: React.FC<CajaFormProps> = ({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Evitar doble envío por seguridad
+    if (loading) return;
+
+    setLoading(true);
     try {
       if (caja && caja.id) {
         // Editar
@@ -114,6 +119,8 @@ const CajaForm: React.FC<CajaFormProps> = ({
       } else {
         toast.error("Ocurrió un error al guardar la caja.");
       }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -201,11 +208,20 @@ const CajaForm: React.FC<CajaFormProps> = ({
 
         {/* BOTONES */}
         <div className="flex justify-end gap-2 mt-4">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+            disabled={loading} // opcional, desactivar "Cancelar" también
+          >
             Cancelar
           </button>
-          <button type="submit" className="btn-primary bg-blue-600">
-            Guardar
+          <button
+            type="submit"
+            className="btn-primary bg-blue-600"
+            disabled={loading}  // Deshabilitar mientras loading === true
+          >
+            {loading ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </form>

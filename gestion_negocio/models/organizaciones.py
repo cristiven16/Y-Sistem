@@ -159,6 +159,7 @@ class Sucursal(Base):
 
     organizacion = relationship("Organizacion", back_populates="sucursales")
     bodegas = relationship("Bodega", back_populates="sucursal")
+    cajas = relationship("Caja", back_populates="sucursal")
     departamento = relationship("Departamento", lazy="joined")
     ciudad = relationship("Ciudad", lazy="joined")
 
@@ -181,7 +182,6 @@ class TiendaVirtual(Base):
 
     organizacion = relationship("Organizacion", back_populates="tiendas_virtuales")
     centro_costo = relationship("CentroCosto", back_populates="tiendas_virtuales", lazy="joined")
-
 
 class Bodega(Base):
     __tablename__ = "bodegas"
@@ -243,7 +243,6 @@ class Caja(Base):
 
     organizacion = relationship("Organizacion", back_populates="cajas")
     sucursal = relationship("Sucursal", lazy="joined")
-
 
 class CuentaBancaria(Base):
     __tablename__ = "cuentas_bancarias"

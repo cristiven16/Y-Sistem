@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Literal
 from enum import Enum
 from datetime import datetime
 from .common_schemas import (
@@ -65,7 +65,10 @@ class NumeracionTransaccionCreate(NumeracionTransaccionBase):
 
 class NumeracionTransaccionRead(NumeracionTransaccionBase):
     id: int
-
+    organizacion_id: int  # para reflejar la org
+    # Anidar la sucursal
+    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
+    
     class Config:
         from_attributes = True
 
@@ -147,7 +150,10 @@ class TiendaVirtualCreate(TiendaVirtualBase):
 
 class TiendaVirtualRead(TiendaVirtualBase):
     id: int
-
+    organizacion_id: int  # para reflejar la org
+    # Anidar la sucursal
+    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
+    
     class Config:
         from_attributes = True
 
@@ -186,7 +192,7 @@ class PaginatedBodegas(BaseModel):
 class CentroCostoBase(BaseModel):
     codigo: str
     nombre: str
-    nivel: Optional[str] = None  # "PRINCIPAL" o "SUBCENTRO"
+    nivel: Optional[Literal["PRINCIPAL", "SUBCENTRO"]] = None  # "PRINCIPAL" o "SUBCENTRO"
     padre_id: Optional[int] = None
     permite_ingresos: bool = True
     estado: bool = True
@@ -196,6 +202,18 @@ class CentroCostoCreate(CentroCostoBase):
 
 class CentroCostoRead(CentroCostoBase):
     id: int
+    organizacion_id: int  # para reflejar la org
+    # Anidar la sucursal
+    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
+    
+    class Config:
+        from_attributes = True
+
+class PaginatedCentrosCostos(BaseModel):
+    data: List[CentroCostoRead]
+    page: int
+    total_paginas: int
+    total_registros: int
 
     class Config:
         from_attributes = True
@@ -211,8 +229,10 @@ class CajaCreate(CajaBase):
 
 class CajaRead(CajaBase):
     id: int
-    # Podrías agregar timestamps, responsables, etc.
-
+    organizacion_id: int  # para reflejar la org
+    # Anidar la sucursal
+    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
+    
     class Config:
         from_attributes = True
 
@@ -242,6 +262,9 @@ class CuentaBancariaCreate(CuentaBancariaBase):
 
 class CuentaBancariaRead(CuentaBancariaBase):
     id: int
-
+    organizacion_id: int  # para reflejar la org
+    # Anidar la sucursal
+    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
+    
     class Config:
         from_attributes = True

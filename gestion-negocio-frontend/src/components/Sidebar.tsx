@@ -99,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     to={`/organizations/${orgId}/ajustes`}
                     className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
                   >
-                    Ajustes de la Empresa
+                    Ajustes de la empresa
                   </Link>
                 </li>
 
@@ -125,6 +125,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
                   >
                     Cajas
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/centros-costos"
+                    className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
+                  >
+                    Centros de costos
                   </Link>
                 </li>
                 <li>

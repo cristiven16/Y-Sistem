@@ -1,19 +1,19 @@
-// src/pages/Cajas/CajasTable.tsx
+// src/pages/CentrosCostos/CentrosCostosTable.tsx
 
 import React, { useState, useEffect, useRef } from "react";
 import { FaEllipsisV, FaEdit, FaTrash, FaInfoCircle } from "react-icons/fa";
-import Portal from "../../utils/Portal"; // Ajusta la ruta si tienes un Portal
-import { Caja } from "./cajasTypes";
+import Portal from "../../utils/Portal"; // Ajusta la ruta si usas un Portal
+import { CentroCosto } from "./centrosCostosTypes";
 
-interface CajasTableProps {
-  cajas: Caja[];
+interface CentrosCostosTableProps {
+  centros: CentroCosto[];
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   onViewDetails: (id: number) => void;
 }
 
-const CajasTable: React.FC<CajasTableProps> = ({
-  cajas,
+const CentrosCostosTable: React.FC<CentrosCostosTableProps> = ({
+  centros,
   onEdit,
   onDelete,
   onViewDetails,
@@ -28,9 +28,9 @@ const CajasTable: React.FC<CajasTableProps> = ({
 
   function handleMenuButtonClick(
     e: React.MouseEvent<HTMLButtonElement>,
-    cajaId: number
+    centroId: number
   ) {
-    if (openMenuId === cajaId) {
+    if (openMenuId === centroId) {
       closeMenu();
       return;
     }
@@ -48,7 +48,7 @@ const CajasTable: React.FC<CajasTableProps> = ({
     }
 
     setMenuPos({ top, left });
-    setOpenMenuId(cajaId);
+    setOpenMenuId(centroId);
   }
 
   // Cerrar menú al hacer clic fuera
@@ -70,40 +70,48 @@ const CajasTable: React.FC<CajasTableProps> = ({
         <thead className="bg-gray-100 text-gray-700">
           <tr>
             <th className="p-3">Acciones</th>
-            <th className="p-3">Caja</th>
-            <th className="p-3">Sucursal</th>
+            <th className="p-3">Código</th>
+            <th className="p-3">Nombre</th>
+            <th className="p-3">Nivel</th>
+            <th className="p-3">Padre</th>
+            <th className="p-3">Permite Ingresos</th>
             <th className="p-3">Estado</th>
-            <th className="p-3">Vigencia</th>
           </tr>
         </thead>
         <tbody>
-          {cajas.map((caja) => (
-            <tr key={caja.id} className="hover:bg-gray-50">
+          {centros.map((centro) => (
+            <tr key={centro.id} className="hover:bg-gray-50">
               {/* ACCIONES */}
               <td className="p-3">
                 <button
-                  onClick={(e) => handleMenuButtonClick(e, caja.id)}
+                  onClick={(e) => handleMenuButtonClick(e, centro.id)}
                   className="btn-secondary"
                 >
                   <FaEllipsisV />
                 </button>
               </td>
 
-              {/* NOMBRE */}
-              <td className="p-3 font-bold">{caja.nombre}</td>
+              {/* CÓDIGO */}
+              <td className="p-3 font-bold">{centro.codigo}</td>
 
-              {/* SUCURSAL (mostrar nombre si existe, si no el ID) */}
+              {/* NOMBRE */}
+              <td className="p-3">{centro.nombre}</td>
+
+              {/* NIVEL */}
+              <td className="p-3">{centro.nivel}</td>
+
+              {/* PADRE_ID (o padre.nombre si tuvieras la relación anidada) */}
               <td className="p-3">
-                {caja.sucursal
-                  ? caja.sucursal.nombre
-                  : `#${caja.sucursal_id}`}
+                {centro.padre_id !== null ? centro.padre_id : "N/A"}
+              </td>
+
+              {/* PERMITE_INGRESOS */}
+              <td className="p-3">
+                {centro.permite_ingresos ? "Sí" : "No"}
               </td>
 
               {/* ESTADO */}
-              <td className="p-3">{caja.estado ? "Activa" : "Inactiva"}</td>
-
-              {/* VIGENCIA */}
-              <td className="p-3">{caja.vigencia ? "Vigente" : "No Vigente"}</td>
+              <td className="p-3">{centro.estado ? "Activo" : "Inactivo"}</td>
             </tr>
           ))}
         </tbody>
@@ -119,8 +127,7 @@ const CajasTable: React.FC<CajasTableProps> = ({
           >
             {/* Editar */}
             <button
-              className="flex items-center gap-2 px-4 py-2 w-full text-left
-                         hover:bg-gray-100 text-gray-800"
+              className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-gray-100 text-gray-800"
               onClick={() => {
                 closeMenu();
                 onEdit(openMenuId);
@@ -131,8 +138,7 @@ const CajasTable: React.FC<CajasTableProps> = ({
             </button>
             {/* Eliminar */}
             <button
-              className="flex items-center gap-2 px-4 py-2 w-full text-left
-                         hover:bg-gray-100 text-gray-800"
+              className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-gray-100 text-gray-800"
               onClick={() => {
                 closeMenu();
                 onDelete(openMenuId);
@@ -143,8 +149,7 @@ const CajasTable: React.FC<CajasTableProps> = ({
             </button>
             {/* Detalles */}
             <button
-              className="flex items-center gap-2 px-4 py-2 w-full text-left
-                         hover:bg-gray-100 text-gray-800"
+              className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-gray-100 text-gray-800"
               onClick={() => {
                 closeMenu();
                 onViewDetails(openMenuId);
@@ -160,4 +165,4 @@ const CajasTable: React.FC<CajasTableProps> = ({
   );
 };
 
-export default CajasTable;
+export default CentrosCostosTable;

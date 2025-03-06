@@ -24,7 +24,8 @@ from schemas.org_schemas import (
     BodegaCreate, BodegaRead,
     CajaCreate, CajaRead, PaginatedCajas,
     TiendaVirtualCreate, TiendaVirtualRead,
-    CentroCostoCreate, CentroCostoRead, PaginatedSucursales, SucursalUpdate, PaginatedBodegas
+    CentroCostoCreate, CentroCostoRead, PaginatedCentrosCostos,
+    PaginatedSucursales, SucursalUpdate, PaginatedBodegas
 )
 from dependencies.auth import (
     get_current_user,
@@ -503,28 +504,54 @@ def delete_sucursal(
 # =============================================================================
 #
 
-@router.get("/{org_id}/centros_costos", response_model=List[CentroCostoRead])
+@router.get("/{org_id}/centros_costos", response_model=PaginatedCentrosCostos)
 def list_centros_costos(
     org_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
+    search: Optional[str] = Query(None),
+    page: int = 1,
+    page_size: int = 10
 ):
     """
-    Lista todos los Centros de Costo de la organización {org_id}.
-    (Cualquier usuario autenticado)
+    Lista paginada de centros de costo de la organización {org_id}.
+    Retorna {data, page, total_paginas, total_registros}.
     """
     org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
 
-    return org.centros_costos
+    # Base query
+    query = db.query(CentroCosto).filter(CentroCosto.organizacion_id == org_id)
+
+    # Ejemplo: buscar por "nombre" o "codigo"
+    if search:
+        query = query.filter(
+            (CentroCosto.nombre.ilike(f"%{search}%"))
+            | (CentroCosto.codigo.ilike(f"%{search}%"))
+        )
+
+    total_registros = query.count()
+    total_paginas = max((total_registros + page_size - 1) // page_size, 1)
+    if page > total_paginas:
+        page = total_paginas
+
+    offset = (page - 1) * page_size
+    centros_db = query.offset(offset).limit(page_size).all()
+
+    data = [CentroCostoRead.from_orm(cc) for cc in centros_db]
+
+    return {
+        "data": data,
+        "page": page,
+        "total_paginas": total_paginas,
+        "total_registros": total_registros
+    }
 
 
-@router.post(
-    "/{org_id}/centros_costos",
+@router.post("/{org_id}/centros_costos",
     response_model=CentroCostoRead,
-    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))]
-)
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
 def create_centro_costo(
     org_id: int,
     data: CentroCostoCreate,
@@ -532,15 +559,18 @@ def create_centro_costo(
     current_user=Depends(get_current_user)
 ):
     """
-    Crea un nuevo Centro de Costo para la organización {org_id}.
-    (Acceso: rol_id <= 2 => Admin o Superadmin)
+    Crea un nuevo Centro de Costo en la organización {org_id}.
+    (rol <= Admin)
     """
     org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
 
     if data.organizacion_id != org_id:
-        raise HTTPException(status_code=400, detail="El organizacion_id no coincide con la URL")
+        raise HTTPException(
+            status_code=400,
+            detail="El organizacion_id no coincide con la URL"
+        )
 
     nuevo_centro = CentroCosto(
         organizacion_id=org_id,
@@ -568,7 +598,6 @@ def get_centro_costo(
 ):
     """
     Retorna el Centro de Costo {centro_id} de la organización {org_id}.
-    (Cualquier usuario autenticado)
     """
     cc = db.query(CentroCosto).filter(
         CentroCosto.id == centro_id,
@@ -579,11 +608,9 @@ def get_centro_costo(
     return cc
 
 
-@router.put(
-    "/{org_id}/centros_costos/{centro_id}",
+@router.put("/{org_id}/centros_costos/{centro_id}",
     response_model=CentroCostoRead,
-    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))]
-)
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
 def update_centro_costo(
     org_id: int,
     centro_id: int,
@@ -593,18 +620,21 @@ def update_centro_costo(
 ):
     """
     Actualiza el Centro de Costo {centro_id} de la organización {org_id}.
-    (Acceso: rol_id <= 2 => Admin o Superadmin)
+    (rol <= Admin)
     """
     cc = db.query(CentroCosto).filter(
         CentroCosto.id == centro_id,
         CentroCosto.organizacion_id == org_id
     ).first()
     if not cc:
-        raise HTTPException(status_code=404, detail="Centro de costo no encontrado o no pertenece a la organización.")
+        raise HTTPException(status_code=404, detail="Centro de costo no encontrado.")
 
     fields = data.dict(exclude_unset=True)
     if "organizacion_id" in fields and fields["organizacion_id"] != org_id:
-        raise HTTPException(status_code=400, detail="El organizacion_id no coincide con la URL")
+        raise HTTPException(
+            status_code=400,
+            detail="El organizacion_id no coincide con la URL"
+        )
 
     cc.codigo = fields.get("codigo", cc.codigo)
     cc.nombre = fields.get("nombre", cc.nombre)
@@ -619,10 +649,8 @@ def update_centro_costo(
     return cc
 
 
-@router.delete(
-    "/{org_id}/centros_costos/{centro_id}",
-    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))]
-)
+@router.delete("/{org_id}/centros_costos/{centro_id}",
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
 def delete_centro_costo(
     org_id: int,
     centro_id: int,
@@ -631,20 +659,19 @@ def delete_centro_costo(
 ):
     """
     Elimina el Centro de Costo {centro_id} de la organización {org_id}.
-    (Acceso: rol_id <= 2 => Admin o Superadmin)
+    (rol <= Admin)
     """
     cc = db.query(CentroCosto).filter(
         CentroCosto.id == centro_id,
         CentroCosto.organizacion_id == org_id
     ).first()
     if not cc:
-        raise HTTPException(status_code=404, detail="Centro de costo no encontrado o no pertenece a la organización.")
+        raise HTTPException(status_code=404, detail="Centro de costo no encontrado.")
 
     db.delete(cc)
     db.commit()
     log_event(db, current_user.id, "CC_DELETED", f"Centro de costo {centro_id} eliminado de Org {org_id}")
     return {"message": f"Centro de costo {centro_id} eliminado con éxito."}
-
 #
 # =============================================================================
 #                                BODEGAS
@@ -810,22 +837,6 @@ def delete_bodega(
 # =============================================================================
 #
 
-@router.get("/{org_id}/cajas", response_model=List[CajaRead])
-def list_cajas(
-    org_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    """
-    Lista todas las Cajas de la organización {org_id}.
-    (Cualquier usuario autenticado)
-    """
-    org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organización no encontrada")
-    return org.cajas
-
-
 @router.post(
     "/{org_id}/cajas",
     response_model=CajaRead,
@@ -873,19 +884,18 @@ def list_cajas(
     page_size: int = 10
 ):
     """
-    Lista todas las Cajas de la organización {org_id},
-    con búsqueda en el campo 'nombre' (o lo que tú quieras)
-    y paginación.
+    Lista todas las Cajas con la sucursal anidada.
     Retorna { data, page, total_paginas, total_registros }.
     """
     org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
 
-    # Base query
-    query = db.query(Caja).filter(Caja.organizacion_id == org_id)
+    # Query con joinedload para que 'caja.sucursal' cargue
+    query = db.query(Caja).options(joinedload(Caja.sucursal)) \
+                .filter(Caja.organizacion_id == org_id)
 
-    # Búsqueda (ejemplo en el campo 'nombre')
+    # Búsqueda
     if search:
         query = query.filter(Caja.nombre.ilike(f"%{search}%"))
 
@@ -898,9 +908,8 @@ def list_cajas(
     offset = (page - 1) * page_size
     cajas_db = query.offset(offset).limit(page_size).all()
 
-    # Convertir a Pydantic si quieres (CajaRead.from_orm), 
-    # o devuelves los objetos y Pydantic se encarga
-    data = [CajaRead.from_orm(c) for c in cajas_db]
+    # Convertir a Pydantic (CajaRead) para que anide sucursal
+    data = [CajaRead.from_orm(caja) for caja in cajas_db]
 
     return {
         "data": data,
@@ -908,8 +917,6 @@ def list_cajas(
         "total_paginas": total_paginas,
         "total_registros": total_registros
     }
-
-
 
 @router.put(
     "/{org_id}/cajas/{caja_id}",
