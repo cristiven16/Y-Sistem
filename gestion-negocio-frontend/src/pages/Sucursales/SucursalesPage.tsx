@@ -20,7 +20,7 @@ const SucursalesPage: React.FC = () => {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
 
   // Modales (crear, editar, confirmar eliminar)
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -31,7 +31,7 @@ const SucursalesPage: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // Sucursal seleccionada para cualquiera de los modales
-  const [selectedSucursal, setSelectedSucursal] = useState<Sucursal | null>(null);
+  const [selectedSucursal, setSelectedSucursal] = useState<Sucursal | undefined>(undefined);
 
   // Al montar o si cambia orgId
   useEffect(() => {
@@ -49,7 +49,7 @@ const SucursalesPage: React.FC = () => {
 
   async function fetchSucursales(orgId: number, pageNumber: number, searchText: string) {
     setLoading(true);
-    setError(null);
+    setError(undefined);
     try {
       const resp: PaginatedSucursales = await getSucursales(orgId, searchText, pageNumber, 10);
       setSucursales(resp.data);
@@ -74,20 +74,20 @@ const SucursalesPage: React.FC = () => {
 
   // Crear => abre modal SucursalForm en modo "nuevo"
   function handleCreate() {
-    setSelectedSucursal(null);
+    setSelectedSucursal(undefined);
     setIsCreateOpen(true);
   }
 
   // Edit => abre modal SucursalForm en modo "editar"
   function handleEdit(id: number) {
-    const found = sucursales.find((s) => s.id === id) || null;
+    const found = sucursales.find((s) => s.id === id) || undefined;
     setSelectedSucursal(found);
     setIsEditOpen(true);
   }
 
   // Eliminar => open confirm
   function handleDelete(id: number) {
-    const found = sucursales.find((s) => s.id === id) || null;
+    const found = sucursales.find((s) => s.id === id) || undefined;
     setSelectedSucursal(found);
     setIsConfirmOpen(true);
   }
@@ -103,13 +103,13 @@ const SucursalesPage: React.FC = () => {
       toast.error("No se pudo eliminar la sucursal.");
     } finally {
       setIsConfirmOpen(false);
-      setSelectedSucursal(null);
+      setSelectedSucursal(undefined);
     }
   }
 
   // Ver detalles => abrimos modal
   function handleViewDetails(id: number) {
-    const found = sucursales.find((s) => s.id === id) || null;
+    const found = sucursales.find((s) => s.id === id) || undefined;
     setSelectedSucursal(found);
     setIsDetailsOpen(true);
   }
@@ -120,7 +120,7 @@ const SucursalesPage: React.FC = () => {
     setIsEditOpen(false);
     setIsConfirmOpen(false);
     setIsDetailsOpen(false);
-    setSelectedSucursal(null);
+    setSelectedSucursal(undefined);
   }
 
   return (
@@ -215,9 +215,15 @@ const SucursalesPage: React.FC = () => {
 
       {/* Modal Detalles Sucursal */}
       <SucursalDetailsModal
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        sucursal={selectedSucursal}
+      isOpen={isDetailsOpen}
+      onClose={() => setIsDetailsOpen(false)}
+      sucursal={selectedSucursal}
+      onEdit={(id) => {
+        // primero cierra el modal de detalles
+        setIsDetailsOpen(false);
+        // luego abre el modal de edición
+        handleEdit(id);
+      }}
       />
 
       {/* ConfirmModal para eliminar */}

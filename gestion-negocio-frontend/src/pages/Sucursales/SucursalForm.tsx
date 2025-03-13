@@ -13,7 +13,7 @@ interface SucursalFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;  // para recargar la lista en la página
-  sucursal?: Sucursal | null;
+  sucursal?: Sucursal | undefined;
   organizacionId: number; // para el payload organizacion_id y la ruta
 }
 
@@ -21,8 +21,8 @@ const initialForm: SucursalPayload = {
   organizacion_id: 1, // Se ajusta dinámicamente luego
   nombre: "",
   pais: "COLOMBIA",
-  departamento_id: null,
-  ciudad_id: null,
+  departamento_id: undefined,
+  ciudad_id: undefined,
   direccion: "",
   telefonos: "",
   prefijo_transacciones: "",
@@ -42,6 +42,9 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [departamentosCargados, setDepartamentosCargados] = useState(false);
 
+  // Estado para evitar doble clic
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       // Cargamos deptos si no se han cargado antes
@@ -55,8 +58,8 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
           organizacion_id: sucursal.organizacion_id,
           nombre: sucursal.nombre,
           pais: sucursal.pais || "COLOMBIA",
-          departamento_id: sucursal.departamento_id ?? null,
-          ciudad_id: sucursal.ciudad_id ?? null,
+          departamento_id: sucursal.departamento_id ?? undefined,
+          ciudad_id: sucursal.ciudad_id ?? undefined,
           direccion: sucursal.direccion || "",
           telefonos: sucursal.telefonos || "",
           prefijo_transacciones: sucursal.prefijo_transacciones || "",
@@ -71,7 +74,7 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
         });
       }
     }
-  }, [isOpen, sucursal, organizacionId]);
+  }, [isOpen, sucursal, organizacionId, departamentosCargados]);
 
   // Cada vez que cambia formData.departamento_id => cargamos ciudades
   useEffect(() => {
@@ -79,7 +82,7 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
       loadCiudades(formData.departamento_id);
     } else {
       setCiudades([]);
-      setFormData((prev) => ({ ...prev, ciudad_id: null }));
+      setFormData((prev) => ({ ...prev, ciudad_id: undefined }));
     }
   }, [formData.departamento_id]);
 
@@ -104,25 +107,36 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
     }
   }
 
+  // Handler principal (inputs y selects, sin checkboxes)
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target; // Notamos que NO usamos "checked" aquí
 
-    if (type === "checkbox") {
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "departamento_id" || name === "ciudad_id") {
+    if (name === "departamento_id" || name === "ciudad_id") {
       setFormData((prev) => ({
         ...prev,
-        [name]: value === "" ? null : Number(value),
+        [name]: value === "" ? undefined : Number(value),
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   }
 
+  // Nuevo handler para checkboxes
+  function handleCheckboxChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (loading) return; // Si ya está cargando, evitamos doble clic
+
+    setLoading(true);
     try {
       if (sucursal && sucursal.id) {
         // Actualizar sucursal existente
@@ -142,10 +156,12 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
       } else {
         toast.error("Ocurrió un error al guardar la sucursal.");
       }
+    } finally {
+      setLoading(false);
     }
   }
 
-  if (!isOpen) return null;
+  if (!isOpen) return undefined;
 
   return (
     <Modal
@@ -288,7 +304,7 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
             name="sucursal_principal"
             type="checkbox"
             checked={formData.sucursal_principal}
-            onChange={handleChange}
+            onChange={handleCheckboxChange} // <-- nuevo handler
           />
           <label className="label" htmlFor="sucursal_principal">
             ¿Sucursal Principal?
@@ -302,7 +318,7 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
             name="activa"
             type="checkbox"
             checked={formData.activa}
-            onChange={handleChange}
+            onChange={handleCheckboxChange} // <-- nuevo handler
           />
           <label className="label" htmlFor="activa">
             ¿Activa?
@@ -311,11 +327,20 @@ const SucursalForm: React.FC<SucursalFormProps> = ({
 
         {/* BOTONES */}
         <div className="flex justify-end gap-2 mt-4">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancelar
           </button>
-          <button type="submit" className="btn-primary bg-blue-600">
-            Guardar
+          <button
+            type="submit"
+            className="btn-primary bg-blue-600"
+            disabled={loading}
+          >
+            {loading ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </form>

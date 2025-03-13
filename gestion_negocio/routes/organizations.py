@@ -23,7 +23,7 @@ from schemas.org_schemas import (
     SucursalCreate, SucursalRead, SucursalNested,
     BodegaCreate, BodegaRead,
     CajaCreate, CajaRead, PaginatedCajas,
-    TiendaVirtualCreate, TiendaVirtualRead,
+    TiendaVirtualCreate, TiendaVirtualRead, PaginatedTiendasVirtuales,
     CentroCostoCreate, CentroCostoRead, PaginatedCentrosCostos,
     PaginatedSucursales, SucursalUpdate, PaginatedBodegas,
     NumeracionTransaccionBase, NumeracionTransaccionCreate, NumeracionTransaccionRead,PaginatedNumeraciones
@@ -989,27 +989,9 @@ def delete_caja(
 # =============================================================================
 #
 
-@router.get("/{org_id}/tiendas_virtuales", response_model=List[TiendaVirtualRead])
-def list_tiendas_virtuales(
-    org_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    """
-    Lista todas las Tiendas Virtuales de la organización {org_id}.
-    (Cualquier usuario autenticado)
-    """
-    org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organización no encontrada")
-    return org.tiendas_virtuales
-
-
-@router.post(
-    "/{org_id}/tiendas_virtuales",
+@router.post("/{org_id}/tiendas_virtuales",
     response_model=TiendaVirtualRead,
-    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))]
-)
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
 def create_tienda_virtual(
     org_id: int,
     data: TiendaVirtualCreate,
@@ -1017,15 +999,15 @@ def create_tienda_virtual(
     current_user=Depends(get_current_user)
 ):
     """
-    Crea una nueva Tienda Virtual para la organización {org_id}.
-    (Acceso: rol_id <= 2 => Admin o Superadmin)
+    Crea una nueva Tienda Virtual para la org {org_id}.
+    (Rol <= Admin o Superadmin)
     """
     org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organización no encontrada")
 
     if data.organizacion_id != org_id:
-        raise HTTPException(status_code=400, detail="El organizacion_id no coincide con la URL")
+        raise HTTPException(400, "El organizacion_id no coincide con la URL")
 
     nueva_tienda = TiendaVirtual(
         organizacion_id=org_id,
@@ -1042,8 +1024,53 @@ def create_tienda_virtual(
     log_event(db, current_user.id, "TIENDA_CREATED", f"Tienda Virtual {nueva_tienda.nombre} creada en Org {org_id}")
     return nueva_tienda
 
+@router.get("/{org_id}/tiendas_virtuales", response_model=PaginatedTiendasVirtuales)
+def list_tiendas_virtuales(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    search: Optional[str] = Query(None),
+    page: int = 1,
+    page_size: int = 10
+):
+    """
+    Lista paginada de Tiendas Virtuales de la organización {org_id},
+    con filtro 'search' en campos 'nombre' o 'plataforma' o 'url'.
+    """
+    org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
+    if not org:
+        raise HTTPException(404, "Organización no encontrada")
 
-@router.get("/{org_id}/tiendas_virtuales/{tienda_id}", response_model=TiendaVirtualRead)
+    query = db.query(TiendaVirtual).filter(
+        TiendaVirtual.organizacion_id == org_id
+    )
+
+    if search:
+        search_like = f"%{search}%"
+        query = query.filter(or_(
+            TiendaVirtual.nombre.ilike(search_like),
+            TiendaVirtual.plataforma.ilike(search_like),
+            TiendaVirtual.url.ilike(search_like),
+        ))
+
+    total_registros = query.count()
+    total_paginas = max((total_registros + page_size - 1)//page_size, 1)
+    if page > total_paginas:
+        page = total_paginas
+    offset = (page - 1)*page_size
+
+    tv_db = query.offset(offset).limit(page_size).all()
+    data = [TiendaVirtualRead.from_orm(t) for t in tv_db]
+
+    return {
+        "data": data,
+        "page": page,
+        "total_paginas": total_paginas,
+        "total_registros": total_registros
+    }
+
+@router.get("/{org_id}/tiendas_virtuales/{tienda_id}",
+    response_model=TiendaVirtualRead)
 def get_tienda_virtual(
     org_id: int,
     tienda_id: int,
@@ -1051,44 +1078,41 @@ def get_tienda_virtual(
     current_user=Depends(get_current_user)
 ):
     """
-    Retorna la Tienda Virtual {tienda_id} de la organización {org_id}.
-    (Cualquier usuario autenticado)
+    Retorna la Tienda Virtual {tienda_id} de la org {org_id}.
     """
     tv = db.query(TiendaVirtual).filter(
         TiendaVirtual.id == tienda_id,
         TiendaVirtual.organizacion_id == org_id
     ).first()
     if not tv:
-        raise HTTPException(status_code=404, detail="Tienda Virtual no encontrada o no pertenece a la organización.")
+        raise HTTPException(404, "Tienda Virtual no encontrada o no pertenece a la organización.")
     return tv
 
-
-@router.put(
-    "/{org_id}/tiendas_virtuales/{tienda_id}",
+@router.put("/{org_id}/tiendas_virtuales/{tienda_id}",
     response_model=TiendaVirtualRead,
-    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))]
-)
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
 def update_tienda_virtual(
     org_id: int,
     tienda_id: int,
-    data: TiendaVirtualCreate,
+    data: TiendaVirtualCreate,  # O un TiendaVirtualUpdate si prefieres
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """
-    Actualiza la Tienda Virtual {tienda_id} de la organización {org_id}.
-    (Acceso: rol_id <= 2 => Admin o Superadmin)
+    Actualiza la Tienda Virtual {tienda_id} de la org {org_id}.
+    (Rol <= Admin)
     """
     tv = db.query(TiendaVirtual).filter(
         TiendaVirtual.id == tienda_id,
         TiendaVirtual.organizacion_id == org_id
     ).first()
     if not tv:
-        raise HTTPException(status_code=404, detail="Tienda Virtual no encontrada o no pertenece a la organización.")
+        raise HTTPException(404, "Tienda Virtual no encontrada.")
 
     fields = data.dict(exclude_unset=True)
+
     if "organizacion_id" in fields and fields["organizacion_id"] != org_id:
-        raise HTTPException(status_code=400, detail="El organizacion_id no coincide con la URL")
+        raise HTTPException(400, "El organizacion_id no coincide con la URL")
 
     tv.plataforma = fields.get("plataforma", tv.plataforma)
     tv.nombre = fields.get("nombre", tv.nombre)
@@ -1101,11 +1125,8 @@ def update_tienda_virtual(
     log_event(db, current_user.id, "TIENDA_UPDATED", f"Tienda Virtual {tv.id} actualizada")
     return tv
 
-
-@router.delete(
-    "/{org_id}/tiendas_virtuales/{tienda_id}",
-    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))]
-)
+@router.delete("/{org_id}/tiendas_virtuales/{tienda_id}",
+    dependencies=[Depends(role_required_at_most(ROLE_ADMIN))])
 def delete_tienda_virtual(
     org_id: int,
     tienda_id: int,
@@ -1113,20 +1134,21 @@ def delete_tienda_virtual(
     current_user=Depends(get_current_user)
 ):
     """
-    Elimina la Tienda Virtual {tienda_id} de la organización {org_id}.
-    (Acceso: rol_id <= 2 => Admin o Superadmin)
+    Elimina la Tienda Virtual {tienda_id} de la org {org_id}.
+    (Rol <= Admin)
     """
     tv = db.query(TiendaVirtual).filter(
         TiendaVirtual.id == tienda_id,
         TiendaVirtual.organizacion_id == org_id
     ).first()
     if not tv:
-        raise HTTPException(status_code=404, detail="Tienda Virtual no encontrada o no pertenece a la organización.")
+        raise HTTPException(404, "Tienda Virtual no encontrada.")
 
     db.delete(tv)
     db.commit()
     log_event(db, current_user.id, "TIENDA_DELETED", f"Tienda Virtual {tienda_id} eliminada de Org {org_id}")
     return {"message": f"Tienda Virtual {tienda_id} eliminada con éxito."}
+
 
 #
 # =============================================================================

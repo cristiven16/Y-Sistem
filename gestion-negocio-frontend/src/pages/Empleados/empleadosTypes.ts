@@ -27,10 +27,10 @@ export interface Empleado {
   tipo_documento_id: number;
   tipo_documento?: TipoDocumento;
 
-  dv?: string | null; // si viene calculado cuando es NIT
+  dv?: string | undefined; // si viene calculado cuando es NIT
   numero_documento: string;
   nombre_razon_social: string;
-  email?: string | null;
+  email?: string | undefined;
 
   telefono1?: string;
   telefono2?: string;
@@ -40,9 +40,9 @@ export interface Empleado {
   tipos_persona_id: number;
   regimen_tributario_id: number;
   moneda_principal_id: number;
-  actividad_economica_id?: number | null;
+  actividad_economica_id?: number | undefined;
   forma_pago_id: number;
-  retencion_id?: number | null;
+  retencion_id?: number | undefined;
 
   departamento_id: number;
   departamento?: Departamento;
@@ -53,13 +53,13 @@ export interface Empleado {
   direccion: string;
   sucursal_id: number;
 
-  cargo?: string | null;
-  fecha_nacimiento?: string | null; // "YYYY-MM-DD"
-  fecha_ingreso?: string | null;    // "YYYY-MM-DD"
+  cargo?: string | undefined;
+  fecha_nacimiento?: string | undefined; // "YYYY-MM-DD"
+  fecha_ingreso?: string | undefined;    // "YYYY-MM-DD"
 
   activo: boolean;
   es_vendedor: boolean;
-  observacion?: string | null;
+  observacion?: string | undefined;
 }
 
 /**
@@ -73,10 +73,10 @@ export interface EmpleadoPayload {
   organizacion_id: number;
 
   tipo_documento_id: number;
-  dv?: string | null; // opcional si tu backend lo maneja. 
+  dv?: string | undefined; // opcional si tu backend lo maneja. 
   numero_documento: string;
   nombre_razon_social: string;
-  email?: string | null;
+  email?: string | undefined;
 
   telefono1?: string;
   telefono2?: string;
@@ -86,9 +86,9 @@ export interface EmpleadoPayload {
   tipos_persona_id: number;
   regimen_tributario_id: number;
   moneda_principal_id: number;
-  actividad_economica_id?: number | null;
+  actividad_economica_id?: number | undefined;
   forma_pago_id: number;
-  retencion_id?: number | null;
+  retencion_id?: number | undefined;
 
   departamento_id: number;
   ciudad_id: number;
@@ -96,12 +96,12 @@ export interface EmpleadoPayload {
 
   sucursal_id: number;
 
-  cargo?: string | null;
-  fecha_nacimiento?: string | null; // "YYYY-MM-DD"
-  fecha_ingreso?: string | null;    // "YYYY-MM-DD"
+  cargo?: string | undefined;
+  fecha_nacimiento?: string | undefined; // "YYYY-MM-DD"
+  fecha_ingreso?: string | undefined;    // "YYYY-MM-DD"
 
   activo: boolean;
   es_vendedor: boolean;
 
-  observacion?: string | null;
+  observacion?: string | undefined;
 }

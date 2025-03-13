@@ -4,9 +4,14 @@ from . import Base
 import enum
 
 class EstadoUsuario(str, enum.Enum):
-    activo = "activo"
+    activo = "activo"    
     bloqueado = "bloqueado"
     inactivo = "inactivo"
+
+class TipoUsuario(str, enum.Enum):
+    superadmin = "superadmin"
+    admin = "admin"
+    empleado = "empleado"
 
 class Usuario(Base):
     __tablename__ = "usuarios"
@@ -15,6 +20,7 @@ class Usuario(Base):
     nombre = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    tipo_usuario = Column(Enum(TipoUsuario), default=TipoUsuario.empleado, nullable=False)
 
     # Referencias a Rol y Organizacion
     rol_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
@@ -31,6 +37,23 @@ class Usuario(Base):
     organizacion = relationship("Organizacion", back_populates="usuarios")
     logs = relationship("AuditLog", back_populates="usuario")
 
+    @property
+    def user_level(self) -> int:
+            """
+            A menor número => mayor poder
+            superadmin => 1
+            admin => 2
+            empleado => 3
+            etc.
+            """
+            if self.tipo_usuario == TipoUsuario.superadmin:
+                return 1
+            elif self.tipo_usuario == TipoUsuario.admin:
+                return 2
+            else:
+                return 3
 
     def __repr__(self):
         return f"<Usuario id={self.id} email={self.email} rol_id={self.rol_id}>"
+
+    

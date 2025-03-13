@@ -1,23 +1,11 @@
 // vite.config.ts
-import { defineConfig, loadEnv } from "vite"
-import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-export default defineConfig(({ mode }) => {
-  // Cargamos las variables de entorno
-  const env = loadEnv(mode, process.cwd(), "");
-
-  return {
-    plugins: [react()],
-
-    // Opcional: si solo quieres proxy en modo dev
-    server: {
-      proxy: mode === "development" ? {
-        "/api": {
-          target: env.VITE_API_URL || "http://127.0.0.1:8000",
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ""),
-        },
-      } : {},
-    },
-  };
+export default defineConfig({
+  plugins: [react()],
+  // Si no necesitas configuración extra en server, puedes omitirlo:
+  // server: {
+  //   // Sin proxy, sin nada adicional
+  // },
 });

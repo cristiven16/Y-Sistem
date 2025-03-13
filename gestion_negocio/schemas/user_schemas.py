@@ -1,7 +1,7 @@
 # schemas/user_schemas.py
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 
 class EstadoUsuario(str, Enum):
@@ -43,3 +43,15 @@ class UserRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+class PaginatedUsers(BaseModel):
+    data: List[UserRead]
+    page: int
+    total_paginas: int
+    total_registros: int
+
+    class Config:
+        from_attributes = True
+
+class UserReadExtended(UserRead):
+    rol_nombre: Optional[str] = None

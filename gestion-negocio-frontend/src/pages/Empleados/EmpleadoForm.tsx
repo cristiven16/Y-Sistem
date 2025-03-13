@@ -8,10 +8,7 @@ import {
   actualizarEmpleadoCompleto,
   obtenerTiposDocumento,
 } from "../../api/empleadosAPI";
-import {
-  obtenerDepartamentos,
-  obtenerCiudades
-} from "../../api/ubicacionesAPI";
+import { obtenerDepartamentos, obtenerCiudades } from "../../api/ubicacionesAPI";
 
 // Tipos
 import {
@@ -32,16 +29,14 @@ function capitalizeWords(str: string) {
     .join(" ");
 }
 
-// Ajusta el initialForm para que tenga todos los campos que tu backend requiere
+// Ajusta el initialForm según tu backend
 const initialForm: EmpleadoPayload = {
-  // El backend exige organizacion_id
   organizacion_id: 1,
-
   tipo_documento_id: 0,
-  dv: null, // lo calculas o lo dejas en null
+  dv: undefined,
   numero_documento: "",
   nombre_razon_social: "",
-  email: null,
+  email: undefined,
 
   telefono1: "",
   telefono2: "",
@@ -51,30 +46,30 @@ const initialForm: EmpleadoPayload = {
   tipos_persona_id: 1,
   regimen_tributario_id: 5,
   moneda_principal_id: 1,
-  actividad_economica_id: null,
+  actividad_economica_id: undefined,
   forma_pago_id: 1,
-  retencion_id: null,
+  retencion_id: undefined,
 
   departamento_id: 0,
   ciudad_id: 0,
   direccion: "",
   sucursal_id: 1,
 
-  cargo: null,
-  fecha_nacimiento: null,
-  fecha_ingreso: null,
+  cargo: undefined,
+  fecha_nacimiento: undefined,
+  fecha_ingreso: undefined,
 
   activo: true,
   es_vendedor: false,
 
-  observacion: null
+  observacion: undefined,
 };
 
 interface EmpleadoFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  empleado?: Empleado | null;
+  empleado?: Empleado | undefined;
 }
 
 const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
@@ -93,6 +88,9 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
   const [formData, setFormData] = useState<EmpleadoPayload>(initialForm);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Estado para bloquear el botón mientras se envía
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       cargarCatalogos();
@@ -102,10 +100,10 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
         setFormData({
           organizacion_id: empleado.organizacion_id,
           tipo_documento_id: empleado.tipo_documento_id,
-          dv: empleado.dv ?? null,
+          dv: empleado.dv ?? undefined,
           numero_documento: empleado.numero_documento,
           nombre_razon_social: empleado.nombre_razon_social,
-          email: empleado.email ?? null,
+          email: empleado.email ?? undefined,
 
           telefono1: empleado.telefono1 || "",
           telefono2: empleado.telefono2 || "",
@@ -115,21 +113,21 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
           tipos_persona_id: empleado.tipos_persona_id,
           regimen_tributario_id: empleado.regimen_tributario_id,
           moneda_principal_id: empleado.moneda_principal_id,
-          actividad_economica_id: empleado.actividad_economica_id ?? null,
+          actividad_economica_id: empleado.actividad_economica_id ?? undefined,
           forma_pago_id: empleado.forma_pago_id,
-          retencion_id: empleado.retencion_id ?? null,
+          retencion_id: empleado.retencion_id ?? undefined,
 
           departamento_id: empleado.departamento_id,
           ciudad_id: empleado.ciudad_id,
           direccion: empleado.direccion,
           sucursal_id: empleado.sucursal_id,
 
-          cargo: empleado.cargo ?? null,
-          fecha_nacimiento: empleado.fecha_nacimiento ?? null,
-          fecha_ingreso: empleado.fecha_ingreso ?? null,
+          cargo: empleado.cargo ?? undefined,
+          fecha_nacimiento: empleado.fecha_nacimiento ?? undefined,
+          fecha_ingreso: empleado.fecha_ingreso ?? undefined,
           activo: empleado.activo,
           es_vendedor: empleado.es_vendedor,
-          observacion: empleado.observacion ?? null
+          observacion: empleado.observacion ?? undefined,
         });
       } else {
         // Modo creación
@@ -178,25 +176,22 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
     }
   };
 
-  const handleChange = (
+  // Handler principal (sin checkboxes)
+  function handleChange(
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
-  ) => {
-    const { name, value, checked } = e.target;
+  ) {
+    const { name, value } = e.target; // NOTA: eliminamos "checked" aquí
 
     // Filtrar dígitos en ciertos campos
     if (
-      ["numero_documento", "telefono1", "telefono2", "celular", "whatsapp"].includes(name)
+      ["numero_documento", "telefono1", "telefono2", "celular", "whatsapp"].includes(
+        name
+      )
     ) {
       const soloDigitos = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
-      return;
-    }
-
-    // Checkbox: activo, es_vendedor
-    if (["activo", "es_vendedor"].includes(name)) {
-      setFormData((prev) => ({ ...prev, [name]: checked }));
       return;
     }
 
@@ -213,7 +208,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
         "retencion_id",
         "departamento_id",
         "ciudad_id",
-        "sucursal_id"
+        "sucursal_id",
       ].includes(name)
     ) {
       setFormData((prev) => ({
@@ -223,68 +218,79 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
       return;
     }
 
-    // Email => null si vacío
+    // Email => undefined si vacío
     if (name === "email") {
       setFormData((prev) => ({
         ...prev,
-        email: value.trim() === "" ? null : value,
+        email: value.trim() === "" ? undefined : value,
       }));
       return;
     }
 
-    // Fecha => si es "", mandamos null
+    // Fecha => si es "", mandamos undefined
     if (["fecha_nacimiento", "fecha_ingreso"].includes(name)) {
       setFormData((prev) => ({
         ...prev,
-        [name]: value === "" ? null : value,
+        [name]: value === "" ? undefined : value,
       }));
       return;
     }
 
-    // dv, cargo, observacion => si "" => null
+    // dv, cargo, observacion => si "" => undefined
     if (["dv", "cargo", "observacion"].includes(name)) {
       setFormData((prev) => ({
         ...prev,
-        [name]: value.trim() === "" ? null : value,
+        [name]: value.trim() === "" ? undefined : value,
       }));
       return;
     }
 
     // Resto de campos
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handler exclusivo para checkboxes
+  function handleCheckboxChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Validaciones mínimas
-    if (!formData.tipo_documento_id) {
-      toast.error("Debe seleccionar el tipo de documento.");
-      return;
-    }
-    if (!formData.numero_documento || !formData.nombre_razon_social) {
-      toast.error("Documento y Nombre son obligatorios.");
-      return;
-    }
-    if (
-      !formData.telefono1 &&
-      !formData.telefono2 &&
-      !formData.celular &&
-      !formData.whatsapp
-    ) {
-      toast.error("Debe ingresar al menos un teléfono o celular.");
-      return;
-    }
-    if (!formData.departamento_id) {
-      toast.error("Debe seleccionar un departamento.");
-      return;
-    }
-    if (!formData.ciudad_id) {
-      toast.error("Debe seleccionar una ciudad.");
-      return;
-    }
+    // Evitar doble envío
+    if (loading) return;
 
+    setLoading(true);
     try {
+      // Validaciones mínimas
+      if (!formData.tipo_documento_id) {
+        toast.error("Debe seleccionar el tipo de documento.");
+        return;
+      }
+      if (!formData.numero_documento || !formData.nombre_razon_social) {
+        toast.error("Documento y Nombre son obligatorios.");
+        return;
+      }
+      if (
+        !formData.telefono1 &&
+        !formData.telefono2 &&
+        !formData.celular &&
+        !formData.whatsapp
+      ) {
+        toast.error("Debe ingresar al menos un teléfono o celular.");
+        return;
+      }
+      if (!formData.departamento_id) {
+        toast.error("Debe seleccionar un departamento.");
+        return;
+      }
+      if (!formData.ciudad_id) {
+        toast.error("Debe seleccionar una ciudad.");
+        return;
+      }
+
+      // Creación o actualización
       if (empleado && empleado.id) {
         // Actualización COMPLETA => PUT
         await actualizarEmpleadoCompleto(empleado.id, formData);
@@ -305,10 +311,12 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
       } else {
         toast.error("Ocurrió un error al guardar el empleado.");
       }
+    } finally {
+      setLoading(false); // Vuelve a habilitar los botones
     }
-  };
+  }
 
-  if (!isOpen) return null;
+  if (!isOpen) return undefined;
 
   return (
     <Modal
@@ -323,6 +331,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
       <button
         onClick={onClose}
         className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+        disabled={loading} // opcional, bloquear botón cerrar
       >
         ✕
       </button>
@@ -524,7 +533,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
                 id="activo"
                 name="activo"
                 checked={formData.activo}
-                onChange={handleChange}
+                onChange={handleCheckboxChange}  
               />
               <span className="ml-2">Activo</span>
             </label>
@@ -535,7 +544,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
                 id="es_vendedor"
                 name="es_vendedor"
                 checked={formData.es_vendedor}
-                onChange={handleChange}
+                onChange={handleCheckboxChange}  
               />
               <span className="ml-2">¿Es vendedor?</span>
             </label>
@@ -548,6 +557,7 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="btn-secondary"
+            disabled={loading}
           >
             {showAdvanced
               ? "Ocultar detalles opcionales"
@@ -616,11 +626,20 @@ const EmpleadoForm: React.FC<EmpleadoFormProps> = ({
         )}
 
         <div className="modal-actions flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancelar
           </button>
-          <button type="submit" className="btn-primary bg-blue-600">
-            Guardar
+          <button
+            type="submit"
+            className="btn-primary bg-blue-600"
+            disabled={loading}
+          >
+            {loading ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </form>

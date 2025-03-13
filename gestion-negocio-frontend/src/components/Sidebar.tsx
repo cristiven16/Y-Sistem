@@ -105,6 +105,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
                 <li>
                   <Link
+                    to="/numeraciones"
+                    className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
+                  >
+                    Numeraciones de transaccion
+                  </Link>
+                </li>
+
+                <li>
+                  <Link
                     to="/sucursales"
                     className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
                   >
@@ -137,7 +146,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                 </li>
                 <li>
                   <Link
-                    to="/users"
+                    to="/tiendas-virtuales"
+                    className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
+                  > 
+                    Tiendas Virtuales
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/usuarios"
                     className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
                   >
                     Usuarios
@@ -149,6 +166,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
                   >
                     Roles
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/permisos"
+                    className="flex items-center gap-2 p-2 hover:bg-gray-700 text-white rounded transition"
+                  >
+                    Permisos de usuarios
                   </Link>
                 </li>
               </ul>

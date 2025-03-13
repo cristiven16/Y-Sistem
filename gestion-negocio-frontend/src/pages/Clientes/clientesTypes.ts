@@ -20,67 +20,91 @@ export interface Ciudad {
 }
 
 /**
- * Tipo que retorna el backend al consultar un cliente
- * (similar a ClienteResponseSchema).
+ * Interfaz principal de un Cliente (lectura).
+ * Unifica lo que antes tenías en ClienteResponse y Cliente.
  */
-export interface ClienteResponse {
+export interface Cliente {
   id: number;
-  tipo_documento_id: number;
   organizacion_id: number;
-  dv?: string | null;
+  dv?: string;
+  
+  // Tipo Documento (ID y objeto relacional)
+  tipo_documento_id: number;
+  tipo_documento?: {
+    id: number;
+    nombre: string;
+    abreviatura: string;
+  };
+
+  // Documento y datos de identificación
   numero_documento: string;
   nombre_razon_social: string;
-  email?: string | null;
-  pagina_web?: string | null;
-
+  email?: string;
+  pagina_web?: string;
+  
+  // Ubicación (departamento_id, ciudad_id, etc.)
   departamento_id: number;
+  departamento?: {
+    id: number;
+    nombre: string;
+  };
   ciudad_id: number;
+  ciudad?: {
+    id: number;
+    nombre: string;
+  };
   direccion: string;
 
+  // Teléfonos
   telefono1?: string;
   telefono2?: string;
   celular?: string;
   whatsapp?: string;
 
+  // Parámetros contables/tributarios
   tipos_persona_id: number;
   regimen_tributario_id: number;
   moneda_principal_id: number;
   tarifa_precios_id: number;
   forma_pago_id: number;
+
   permitir_venta: boolean;
   descuento: number;
   cupo_credito: number;
 
-  sucursal_id?: number | null;
-  vendedor_id?: number | null;
-  actividad_economica_id?: number | null;
-  retencion_id?: number | null;
-  tipo_marketing_id?: number | null;
-  ruta_logistica_id?: number | null;
-  observacion?: string | null;
-  // También podría haber "departamento", "ciudad" relacionales, etc.
+  // Varios
+  sucursal_id?: number;
+  vendedor_id?: number;
+  actividad_economica_id?: number;
+  retencion_id?: number;
+  tipo_marketing_id?: number;
+  ruta_logistica_id?: number;
+  observacion?: string;
+  
+  // Campo extra (en la anterior interfaz "Cliente")
+  cxc: number; // si tu backend lo retorna (por ejemplo, cuentas por cobrar)
 }
 
 /**
- * Este es el tipo para crear / actualizar un cliente.
- * Coincide con `ClienteSchema` (o `ClienteUpdateSchema`) del backend.
+ * Interfaz para crear / actualizar un cliente (POST/PUT/PATCH).
+ * Coincide con tu backend en 'ClienteSchema' o similar.
  */
 export interface ClientePayload {
-  // Multi-tenant
   organizacion_id: number;
 
-  // Tipo documento (en el form guardas un objeto, pero al enviar necesitas el ID)
-  tipo_documento?: TipoDocumento;
-  tipo_documento_id?: number; // opcional si prefieres guardarlo directo
+  // Si en el form usas un objeto TipoDocumento, podrías usarlo aquí.
+  // O solo 'tipo_documento_id' si envías el ID directamente.
+  tipo_documento?: TipoDocumento; // en caso de que lo manejes en el form
+  tipo_documento_id?: number;     // si prefieres guardar ID directo
 
   numero_documento: string;
   nombre_razon_social: string;
-  email?: string | null;
+  email?: string;
   pagina_web?: string;
 
-  // Ubicación
-  departamento?: Departamento; // en el form
-  ciudad?: Ciudad;            // en el form
+  // Ubicación en el form (objeto) y/o IDs directos
+  departamento?: Departamento;
+  ciudad?: Ciudad;
   direccion: string;
 
   telefono1?: string;
@@ -97,15 +121,14 @@ export interface ClientePayload {
   permitir_venta: boolean;
   descuento: number;
   cupo_credito: number;
-  sucursal_id?: number;
-  vendedor_id?: number | null;
 
+  sucursal_id?: number;
+  vendedor_id?: number;
   actividad_economica_id?: number;
   retencion_id?: number;
   tipo_marketing_id?: number;
   ruta_logistica_id?: number;
   observacion?: string;
 
-  // Si deseas un `dv`, lo pones aquí, pero normalmente el backend lo calcula.
-  dv?: string | null;
+  dv?: string; // si necesitas enviar dv
 }

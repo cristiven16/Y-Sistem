@@ -1,4 +1,5 @@
-// src/pages/Organizations/EmpresaAjustesPage.tsx
+// gestion-negocio-frontend/src/pages/Organizations/EmpresaAjustesPage.tsx
+
 import React, { useEffect, useState } from "react";
 import { getOrganization, updateOrganization } from "../../api/organizationsAPI";
 import { Organization, OrganizationPayload } from "./organizationTypes";
@@ -43,22 +44,23 @@ const EmpresaAjustesPage: React.FC = () => {
       setOrg(data);
       // Llenamos formData con lo que sea editable
       setFormData({
-        tipo_documento_id: data.tipo_documento_id ?? null,
-        numero_documento: data.numero_documento ?? null,
-        dv: data.dv ?? null,
+        tipo_documento_id: data.tipo_documento_id ?? undefined,
+        numero_documento: data.numero_documento ?? undefined,
+        dv: data.dv ?? undefined,
         nombre_fiscal: data.nombre_fiscal,
-        nombre_comercial: data.nombre_comercial ?? null,
-        nombre_corto: data.nombre_corto ?? null,
+        nombre_comercial: data.nombre_comercial ?? undefined,
+        nombre_corto: data.nombre_corto ?? undefined,
         obligado_contabilidad: data.obligado_contabilidad,
         email_principal: data.email_principal,
-        email_alertas_facturacion: data.email_alertas_facturacion ?? null,
-        email_alertas_soporte: data.email_alertas_soporte ?? null,
-        celular_whatsapp: data.celular_whatsapp ?? null,
-        pagina_web: data.pagina_web ?? null,
-        encabezado_personalizado: data.encabezado_personalizado ?? null,
+        email_alertas_facturacion: data.email_alertas_facturacion ?? undefined,
+        email_alertas_soporte: data.email_alertas_soporte ?? undefined,
+        celular_whatsapp: data.celular_whatsapp ?? undefined,
+        pagina_web: data.pagina_web ?? undefined,
+        encabezado_personalizado: data.encabezado_personalizado ?? undefined,
         dias_dudoso_recaudo: data.dias_dudoso_recaudo,
-        recibir_copia_email_documentos_electronicos: data.recibir_copia_email_documentos_electronicos,
-        politica_garantias: data.politica_garantias ?? null,
+        recibir_copia_email_documentos_electronicos:
+          data.recibir_copia_email_documentos_electronicos,
+        politica_garantias: data.politica_garantias ?? undefined,
       });
     } catch (err) {
       console.error("Error cargando org:", err);
@@ -68,13 +70,18 @@ const EmpresaAjustesPage: React.FC = () => {
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    const { name, value, checked, type } = e.target;
-    if (type === "checkbox") {
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+  // Handler general para inputs (NO checkboxes)
+  function handleInputChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+
+  // Handler exclusivo para checkboxes
+  function handleCheckboxChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -126,8 +133,7 @@ const EmpresaAjustesPage: React.FC = () => {
           <strong>ID Plan:</strong> {org.plan_id ?? "N/A"} <br />
           <strong>Fecha Inicio:</strong> {inicio} <br />
           <strong>Fecha Fin:</strong> {fin} <br />
-          <strong>Trial Activo:</strong>{" "}
-          {org.trial_activo ? "Sí" : "No"}
+          <strong>Trial Activo:</strong> {org.trial_activo ? "Sí" : "No"}
         </p>
       </div>
     );
@@ -153,7 +159,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="text"
               className="input-field"
               value={formData.nombre_fiscal}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
               required
             />
           </div>
@@ -168,7 +174,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="text"
               className="input-field"
               value={formData.nombre_comercial ?? ""}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
             />
           </div>
 
@@ -182,7 +188,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="text"
               className="input-field"
               value={formData.nombre_corto ?? ""}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
             />
           </div>
 
@@ -192,7 +198,7 @@ const EmpresaAjustesPage: React.FC = () => {
               name="obligado_contabilidad"
               type="checkbox"
               checked={formData.obligado_contabilidad}
-              onChange={handleChange}
+              onChange={handleCheckboxChange} // <--- SÍ es checkbox
             />
             <label className="label" htmlFor="obligado_contabilidad">
               ¿Obligado a Contabilidad?
@@ -209,7 +215,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="email"
               className="input-field"
               value={formData.email_principal}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
               required
             />
           </div>
@@ -224,7 +230,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="text"
               className="input-field"
               value={formData.celular_whatsapp ?? ""}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
             />
           </div>
 
@@ -238,7 +244,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="text"
               className="input-field"
               value={formData.pagina_web ?? ""}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
             />
           </div>
 
@@ -252,7 +258,7 @@ const EmpresaAjustesPage: React.FC = () => {
               type="number"
               className="input-field"
               value={formData.dias_dudoso_recaudo}
-              onChange={handleChange}
+              onChange={handleInputChange} // <--- NO es checkbox
             />
           </div>
 
@@ -262,7 +268,7 @@ const EmpresaAjustesPage: React.FC = () => {
               name="recibir_copia_email_documentos_electronicos"
               type="checkbox"
               checked={formData.recibir_copia_email_documentos_electronicos}
-              onChange={handleChange}
+              onChange={handleCheckboxChange} // <--- SÍ es checkbox
             />
             <label
               className="label"
@@ -298,7 +304,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   type="number"
                   className="input-field"
                   value={formData.tipo_documento_id ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
 
@@ -312,7 +318,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   type="text"
                   className="input-field"
                   value={formData.numero_documento ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
 
@@ -326,7 +332,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   type="text"
                   className="input-field"
                   value={formData.dv ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
 
@@ -340,7 +346,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   type="email"
                   className="input-field"
                   value={formData.email_alertas_facturacion ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
 
@@ -354,7 +360,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   type="email"
                   className="input-field"
                   value={formData.email_alertas_soporte ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
 
@@ -368,7 +374,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   className="input-field"
                   rows={3}
                   value={formData.politica_garantias ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
 
@@ -382,7 +388,7 @@ const EmpresaAjustesPage: React.FC = () => {
                   className="input-field"
                   rows={2}
                   value={formData.encabezado_personalizado ?? ""}
-                  onChange={handleChange}
+                  onChange={handleInputChange} // <--- NO es checkbox
                 />
               </div>
             </div>

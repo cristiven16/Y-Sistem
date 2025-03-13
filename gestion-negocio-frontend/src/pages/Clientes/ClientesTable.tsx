@@ -2,35 +2,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaEllipsisV, FaEdit, FaTrash, FaInfoCircle } from "react-icons/fa";
 import Portal from "../../utils/Portal"; // Ajusta ruta a tu Portal.tsx
+import { Cliente } from './clientesTypes'; 
 
-interface TipoDocumento {
-  id: number;
-  nombre: string;
-  abreviatura: string;
-}
-interface Departamento {
-  id: number;
-  nombre: string;
-}
-interface Ciudad {
-  id: number;
-  nombre: string;
-}
-interface Cliente {
-  id: number;
-  nombre_razon_social: string;
-  numero_documento: string;
-  tipo_documento?: TipoDocumento;
-  telefono1?: string;
-  telefono2?: string;
-  celular?: string;
-  whatsapp?: string;
-  departamento?: Departamento;
-  ciudad?: Ciudad;
-  direccion: string;
-  email: string;
-  cxc?: number;
-}
 
 interface ClientesTableProps {
   clientes: Cliente[];

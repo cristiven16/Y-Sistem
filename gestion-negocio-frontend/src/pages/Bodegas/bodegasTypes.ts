@@ -10,6 +10,11 @@ export interface Bodega {
     nombre: string;
     bodega_por_defecto: boolean;
     estado: boolean;
+    sucursal?: {
+      id: number;
+      nombre: string;
+      // Puedes añadir más campos si el backend los retorna
+    };
     // Opcionalmente, si tu backend retorna la sucursal completa:
     // sucursal?: { id: number; nombre: string; /* ... */ };
   }

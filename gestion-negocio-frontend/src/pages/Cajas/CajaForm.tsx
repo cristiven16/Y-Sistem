@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import { Caja, CajaPayload } from "./cajasTypes";
 import { crearCaja, actualizarCaja } from "../../api/cajasAPI";
 import { getSucursales } from "../../api/sucursalesAPI";
-import { useAuth } from "../../hooks/useAuth";
+
 
 // Interfaz de Sucursal mínima, para el select
 interface SucursalItem {
@@ -21,7 +21,7 @@ interface CajaFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  caja?: Caja | null;         // en modo edición
+  caja?: Caja | undefined;         // en modo edición
   organizacionId: number;     // de tu user, etc.
 }
 
@@ -71,26 +71,31 @@ const CajaForm: React.FC<CajaFormProps> = ({
   async function loadSucursales(orgId: number) {
     try {
       const data = await getSucursales(orgId);
-      // Ajusta si tu backend no devuelve { data } sino un array directamente:
-      setSucursales(data.data || data); 
+      // Ajustar si tu backend no devuelve { data }, sino un array directamente
+      setSucursales(data.data || data);
     } catch (err) {
       console.error("Error al cargar sucursales:", err);
       toast.error("No se pudieron cargar las sucursales.");
     }
   }
 
+  // Handler principal para inputs y selects (no-checkbox)
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
-    const { name, type, checked, value } = e.target;
+    const { name, value } = e.target;
 
-    if (type === "checkbox") {
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "sucursal_id") {
+    if (name === "sucursal_id") {
       setFormData((prev) => ({ ...prev, sucursal_id: Number(value) }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
+  }
+
+  // Handler exclusivo para checkboxes (estado, vigencia)
+  function handleCheckboxChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -124,7 +129,7 @@ const CajaForm: React.FC<CajaFormProps> = ({
     }
   }
 
-  if (!isOpen) return null;
+  if (!isOpen) return undefined;
 
   return (
     <Modal
@@ -185,7 +190,7 @@ const CajaForm: React.FC<CajaFormProps> = ({
             id="estado"
             name="estado"
             checked={formData.estado}
-            onChange={handleChange}
+            onChange={handleCheckboxChange} // <--- nuevo handler
           />
           <label htmlFor="estado" className="label">
             ¿Caja activa?
@@ -199,7 +204,7 @@ const CajaForm: React.FC<CajaFormProps> = ({
             id="vigencia"
             name="vigencia"
             checked={formData.vigencia}
-            onChange={handleChange}
+            onChange={handleCheckboxChange} // <--- nuevo handler
           />
           <label htmlFor="vigencia" className="label">
             ¿Vigente?
@@ -212,14 +217,14 @@ const CajaForm: React.FC<CajaFormProps> = ({
             type="button"
             className="btn-secondary"
             onClick={onClose}
-            disabled={loading} // opcional, desactivar "Cancelar" también
+            disabled={loading}
           >
             Cancelar
           </button>
           <button
             type="submit"
             className="btn-primary bg-blue-600"
-            disabled={loading}  // Deshabilitar mientras loading === true
+            disabled={loading}
           >
             {loading ? "Guardando..." : "Guardar"}
           </button>

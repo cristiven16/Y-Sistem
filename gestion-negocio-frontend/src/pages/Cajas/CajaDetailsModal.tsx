@@ -9,7 +9,7 @@ Modal.setAppElement("#root");
 interface CajaDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caja: Caja | null;
+  caja: Caja | undefined;
   onEdit: (id: number) => void;
 }
 
@@ -19,7 +19,7 @@ const CajaDetailsModal: React.FC<CajaDetailsModalProps> = ({
   caja,
   onEdit,
 }) => {
-  if (!isOpen || !caja) return null;
+  if (!isOpen || !caja) return undefined;
 
   return (
     <Modal

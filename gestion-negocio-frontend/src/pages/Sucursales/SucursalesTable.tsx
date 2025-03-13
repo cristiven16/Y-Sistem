@@ -1,5 +1,6 @@
 // src/pages/Sucursales/SucursalesTable.tsx
-import React, { useEffect, useRef, useState, MouseEvent } from "react";
+
+import React, { useEffect, useRef, useState } from "react";
 import { FaEllipsisV, FaEdit, FaTrash, FaInfoCircle } from "react-icons/fa";
 import Portal from "../../utils/Portal"; // Ajusta la ruta si difiere
 import { Sucursal } from "./sucursalesTypes";
@@ -32,7 +33,11 @@ const SucursalesTable: React.FC<SucursalesTableProps> = ({
   }
 
   // Al hacer clic en el botón 3 puntitos
-  function handleMenuButtonClick(e: MouseEvent<HTMLButtonElement>, sucId: number) {
+  // Importante: usar React.MouseEvent aquí (evento sintético de React)
+  function handleMenuButtonClick(
+    e: React.MouseEvent<HTMLButtonElement>,
+    sucId: number
+  ) {
     // Si ya está abierto en la misma sucursal => ciérralo
     if (openMenuId === sucId) {
       closeMenu();
@@ -60,6 +65,7 @@ const SucursalesTable: React.FC<SucursalesTableProps> = ({
   }
 
   // Cerrar menú al hacer clic fuera
+  // Aquí usamos el evento nativo del DOM => 'globalThis.MouseEvent' o solo 'MouseEvent'
   useEffect(() => {
     function handleClickOutside(ev: MouseEvent) {
       if (!openMenuId) return; // no hay menú abierto
@@ -67,6 +73,7 @@ const SucursalesTable: React.FC<SucursalesTableProps> = ({
       if (menuRef.current?.contains(ev.target as Node)) return;
       closeMenu();
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);

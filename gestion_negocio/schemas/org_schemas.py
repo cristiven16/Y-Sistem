@@ -160,9 +160,16 @@ class TiendaVirtualCreate(TiendaVirtualBase):
 class TiendaVirtualRead(TiendaVirtualBase):
     id: int
     organizacion_id: int  # para reflejar la org
-    # Anidar la sucursal
-    sucursal: Optional["SucursalNested"] = None  # de tu schema SucursalNested
-    
+        
+    class Config:
+        from_attributes = True
+
+class PaginatedTiendasVirtuales(BaseModel):
+    data: List[TiendaVirtualRead]
+    page: int
+    total_paginas: int
+    total_registros: int
+
     class Config:
         from_attributes = True
 

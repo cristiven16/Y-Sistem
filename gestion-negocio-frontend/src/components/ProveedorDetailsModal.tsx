@@ -1,13 +1,13 @@
 import React from "react";
 import Modal from "react-modal";
-import { Proveedor } from "../pages/Proveedores/proveedoresTypes";
+import { ProveedorResponse } from "../pages/Proveedores/proveedoresTypes";
 
 Modal.setAppElement("#root");
 
 interface ProveedorDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  proveedor: Proveedor | null; // el proveedor a visualizar
+  proveedor?: ProveedorResponse | undefined; // el proveedor a visualizar
   onEdit: (id: number) => void; // callback para abrir edición
 }
 
@@ -17,7 +17,7 @@ const ProveedorDetailsModal: React.FC<ProveedorDetailsModalProps> = ({
   proveedor,
   onEdit
 }) => {
-  if (!isOpen || !proveedor) return null; // Si está cerrado o no hay proveedor
+  if (!isOpen || !proveedor) return undefined; // Si está cerrado o no hay proveedor
 
   // Puedes observar en consola qué llega realmente
   console.log("Detalles del Proveedor:", proveedor);

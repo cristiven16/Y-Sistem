@@ -1,6 +1,6 @@
 // src/api/clientesAPI.ts
 import apiClient from "./axiosConfig";
-import { ClientePayload, ClienteResponse } from "../pages/Clientes/clientesTypes";
+import { ClientePayload, Cliente} from "../pages/Clientes/clientesTypes";
 
 /** 
  * Interfaces para tu paginación y respuestas.
@@ -26,7 +26,7 @@ export async function getClientes(
   search = "",
   page = 1,
   page_size = 10
-): Promise<PaginatedClientes<ClienteResponse>> {
+): Promise<PaginatedClientes<Cliente>> {
   const response = await apiClient.get("/clientes", {
     params: { search, page, page_size },
   });
@@ -50,7 +50,7 @@ export async function crearCliente(
  */
 export async function getClienteById(
   clienteId: number
-): Promise<ClienteResponse> {
+): Promise<Cliente> {
   const response = await apiClient.get(`/clientes/${clienteId}`);
   return response.data;
 }
@@ -62,7 +62,7 @@ export async function getClienteById(
 export async function actualizarCliente(
   clienteId: number,
   payload: Partial<ClientePayload>
-): Promise<ClienteResponse> {
+): Promise<Cliente> {
   const response = await apiClient.patch(`/clientes/${clienteId}`, payload);
   return response.data;
 }

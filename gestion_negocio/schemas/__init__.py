@@ -8,7 +8,8 @@ from .ventas import PedidoCreateSchema, PedidoResponseSchema
 from .tesoreria import TransaccionSchema, TransaccionResponseSchema
 from .common_schemas import TipoDocumentoSchema, DepartamentoSchema, CiudadSchema
 from .auth_schemas import LoginSchema, LoginResponse
-from .role_schemas import RoleBase, RoleCreate, RoleRead
-from. org_schemas import OrganizacionBase, PaginatedNumeraciones,OrganizacionCreate, PaginatedCentrosCostos,PaginatedCajas, OrganizacionRead, SucursalNested, PaginatedBodegas, NumeracionTransaccionBase, NumeracionTransaccionCreate, NumeracionTransaccionRead, SucursalBase, SucursalCreate, SucursalRead, TiendaVirtualBase, TiendaVirtualCreate, TiendaVirtualRead, BodegaBase, BodegaCreate, BodegaRead, CentroCostoBase, CentroCostoCreate, CentroCostoRead, CajaBase, CajaCreate, CajaRead, CuentaBancariaBase, CuentaBancariaCreate, CuentaBancariaRead, SucursalUpdate, PaginatedSucursales
+from .role_schemas import RoleBase, RoleCreate, RoleRead, PaginatedRoles
+from. org_schemas import OrganizacionBase, PaginatedTiendasVirtuales, PaginatedNumeraciones,OrganizacionCreate, PaginatedCentrosCostos,PaginatedCajas, OrganizacionRead, SucursalNested, PaginatedBodegas, NumeracionTransaccionBase, NumeracionTransaccionCreate, NumeracionTransaccionRead, SucursalBase, SucursalCreate, SucursalRead, TiendaVirtualBase, TiendaVirtualCreate, TiendaVirtualRead, BodegaBase, BodegaCreate, BodegaRead, CentroCostoBase, CentroCostoCreate, CentroCostoRead, CajaBase, CajaCreate, CajaRead, CuentaBancariaBase, CuentaBancariaCreate, CuentaBancariaRead, SucursalUpdate, PaginatedSucursales
 from .plan_schemas import PlanBase, PlanCreate, PlanRead
-from .user_schemas import UserBase, UserCreate, UserRead, EstadoUsuario, UserUpdate
+from .user_schemas import UserBase, UserCreate, UserRead, EstadoUsuario, UserUpdate, PaginatedUsers, UserReadExtended
+from .permission_schemas import PermissionBase, PermissionCreate, PermissionRead, PaginatedPermissions

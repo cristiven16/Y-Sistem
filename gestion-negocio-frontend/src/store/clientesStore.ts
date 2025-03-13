@@ -2,10 +2,10 @@
 
 import { create } from "zustand";
 import { getClientes } from "../api/clientesAPI";
-import { ClienteResponse } from "../pages/Clientes/clientesTypes";
+import { Cliente } from "../pages/Clientes/clientesTypes";
 
 interface ClientesState {
-  clientes: ClienteResponse[];
+  clientes: Cliente[];
   search: string;
   paginaActual: number;
   totalPaginas: number;

@@ -2,32 +2,43 @@
 
 import apiClient from "./axiosConfig";
 
-/** Interfaz de Centro de Costo (debe coincidir con CentroCostoRead en el backend). */
+/** 
+ * Interfaz de Centro de Costo (coincide con lo que maneja tu formulario).
+ * 
+ * OJO: Aquí definimos 'nivel' como "PRINCIPAL" | "SUBCENTRO" | null,
+ * para que sea compatible con lo que envías desde el front. 
+ */
 export interface CentroCosto {
   id: number;
   organizacion_id: number;
   codigo: string;
   nombre: string;
-  nivel: number;
+  nivel: "PRINCIPAL" | "SUBCENTRO" | null;
   padre_id: number | null;
   permite_ingresos: boolean;
   estado: boolean;
-  // Si en el futuro quieres anidar el 'padre' con { id, codigo, nombre, ... },
-  // podrías agregar algo como: padre?: { id: number; codigo: string; ... };
+  // En caso de que tu backend devuelva más campos, agrégalos aquí.
 }
 
-/** Interfaz para crear/actualizar un Centro de Costo (similar a CentroCostoCreate en tu backend). */
+/** 
+ * Interfaz para crear/actualizar un Centro de Costo.
+ * Igual al anterior, salvo que usualmente 'id' no va en el payload.
+ */
 export interface CentroCostoPayload {
   organizacion_id: number;
   codigo: string;
   nombre: string;
-  nivel: number;
+  nivel: "PRINCIPAL" | "SUBCENTRO" | null;
   padre_id?: number | null;
   permite_ingresos: boolean;
   estado: boolean;
 }
 
-/** Interfaz para la respuesta paginada (coincide con PaginatedCentrosCostos en backend). */
+/** 
+ * Interfaz para la respuesta paginada de centros de costo.
+ * 
+ * Ajusta según tu backend (si retorna 'data', 'page', etc.).
+ */
 export interface PaginatedCentrosCostos {
   data: CentroCosto[];
   page: number;
@@ -48,13 +59,12 @@ export async function getCentrosCostos(
   const response = await apiClient.get(`/organizations/${orgId}/centros_costos`, {
     params: { search, page, page_size },
   });
-  return response.data; // { data, page, total_paginas, total_registros }
+  return response.data; 
 }
 
 /**
  * Crear un nuevo Centro de Costo.
  * POST /organizations/{orgId}/centros_costos
- * Se requiere payload con `organizacion_id = orgId`.
  */
 export async function crearCentroCosto(
   orgId: number,
@@ -75,14 +85,15 @@ export async function getCentroCostoById(
   orgId: number,
   centroId: number
 ): Promise<CentroCosto> {
-  const response = await apiClient.get(`/organizations/${orgId}/centros_costos/${centroId}`);
+  const response = await apiClient.get(
+    `/organizations/${orgId}/centros_costos/${centroId}`
+  );
   return response.data;
 }
 
 /**
  * Actualizar un Centro de Costo.
  * PUT /organizations/{orgId}/centros_costos/{centroId}
- * Se requiere `organizacion_id = orgId` en el payload.
  */
 export async function actualizarCentroCosto(
   orgId: number,

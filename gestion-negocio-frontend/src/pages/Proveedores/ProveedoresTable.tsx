@@ -2,38 +2,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaEllipsisV, FaEdit, FaTrash, FaInfoCircle } from "react-icons/fa";
 import Portal from "../../utils/Portal";
+import { ProveedorResponse } from "./proveedoresTypes";
 
-interface TipoDocumento {
-  id: number;
-  nombre: string;
-  abreviatura: string;
-}
-interface Departamento {
-  id: number;
-  nombre: string;
-}
-interface Ciudad {
-  id: number;
-  nombre: string;
-}
-interface Proveedor {
-  id: number;
-  nombre_razon_social: string;
-  numero_documento: string;
-  tipo_documento?: TipoDocumento;
-  telefono1?: string;
-  telefono2?: string;
-  celular?: string;
-  whatsapp?: string;
-  departamento?: Departamento;
-  ciudad?: Ciudad;
-  direccion: string;
-  email: string;
-  cxc?: number;
-}
 
 interface ProveedoresTableProps {
-  proveedores: Proveedor[];
+  proveedores: ProveedorResponse[];
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   onViewDetails: (id: number) => void;
@@ -45,12 +18,12 @@ const ProveedoresTable: React.FC<ProveedoresTableProps> = ({
   onDelete,
   onViewDetails,
 }) => {
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | undefined>(undefined);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   function closeMenu() {
-    setOpenMenuId(null);
+    setOpenMenuId(undefined);
   }
 
   function handleMenuButtonClick(
@@ -92,7 +65,7 @@ const ProveedoresTable: React.FC<ProveedoresTableProps> = ({
     };
   }, [openMenuId]);
 
-  function getAllContactNumbers(prov: Proveedor) {
+  function getAllContactNumbers(prov: ProveedorResponse) {
     const contacts: string[] = [];
     if (prov.celular) contacts.push(prov.celular);
     if (prov.telefono1) contacts.push(prov.telefono1);

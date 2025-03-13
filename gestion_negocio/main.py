@@ -25,7 +25,8 @@ from routes import (
     chats,
     catalogos,
     ubicaciones,
-    planes
+    planes,
+    permissions
 )
 
 # OJO: Se quita la llamada a Base.metadata.create_all(bind=engine)
@@ -61,6 +62,7 @@ app.include_router(chats.router)
 app.include_router(catalogos.router)
 app.include_router(ubicaciones.router)
 app.include_router(planes.router)
+app.include_router(permissions.router)
 
 # Ruta de Prueba
 @app.get("/")

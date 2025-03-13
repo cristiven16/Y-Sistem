@@ -21,17 +21,17 @@ const CajasPage: React.FC = () => {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
 
   // Estado para modal Crear/Editar
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   // Caja seleccionada para editar/eliminar
-  const [selectedCaja, setSelectedCaja] = useState<Caja | null>(null);
+  const [selectedCaja, setSelectedCaja] = useState<Caja | undefined>(undefined);
 
   // Estado para modal de Detalles
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [detailCaja, setDetailCaja] = useState<Caja | null>(null);
+  const [detailCaja, setDetailCaja] = useState<Caja | undefined>(undefined);
 
   // Estado para el ConfirmModal de eliminación
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -45,7 +45,7 @@ const CajasPage: React.FC = () => {
 
   async function fetchCajas(orgId: number, pageNumber: number, searchText: string) {
     setLoading(true);
-    setError(null);
+    setError(undefined);
     try {
       const resp: PaginatedCajas = await getCajas(orgId, searchText, pageNumber, 10);
       setCajas(resp.data);
@@ -70,20 +70,20 @@ const CajasPage: React.FC = () => {
 
   /** Crear => abre el modal en modo creación */
   function handleCreate() {
-    setSelectedCaja(null);
+    setSelectedCaja(undefined);
     setIsCreateOpen(true);
   }
 
   /** Editar => busca la caja y abre modal de edición */
   function handleEdit(id: number) {
-    const found = cajas.find((c) => c.id === id) || null;
+    const found = cajas.find((c) => c.id === id) || undefined;
     setSelectedCaja(found);
     setIsEditOpen(true);
   }
 
   /** Eliminar => abrir confirm modal */
   function handleDelete(id: number) {
-    const found = cajas.find((c) => c.id === id) || null;
+    const found = cajas.find((c) => c.id === id) || undefined;
     setSelectedCaja(found);
     setIsConfirmOpen(true);
   }
@@ -100,7 +100,7 @@ const CajasPage: React.FC = () => {
       toast.error("No se pudo eliminar la caja.");
     } finally {
       setIsConfirmOpen(false);
-      setSelectedCaja(null);
+      setSelectedCaja(undefined);
     }
   }
 
@@ -110,13 +110,13 @@ const CajasPage: React.FC = () => {
     setIsEditOpen(false);
     setIsConfirmOpen(false);
     setIsDetailsOpen(false);
-    setSelectedCaja(null);
-    setDetailCaja(null);
+    setSelectedCaja(undefined);
+    setDetailCaja(undefined);
   }
 
   /** Detalles => abrir modal de detalles */
   function handleViewDetails(id: number) {
-    const found = cajas.find((c) => c.id === id) || null;
+    const found = cajas.find((c) => c.id === id) || undefined;
     setDetailCaja(found);
     setIsDetailsOpen(true);
   }

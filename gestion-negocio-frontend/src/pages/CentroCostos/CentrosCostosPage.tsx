@@ -1,15 +1,19 @@
-// src/pages/CentrosCostos/CentrosCostosPage.tsx
+// src/pages/CentroCostos/CentrosCostosPage.tsx
 
 import React, { useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useAuth } from "../../hooks/useAuth";
+
 import {
   getCentrosCostos,
   deleteCentroCosto,
   PaginatedCentrosCostos,
 } from "../../api/centrocostosAPI";
+
+// Suponemos que "CentroCosto" define nivel?: "PRINCIPAL" | "SUBCENTRO" | null
 import { CentroCosto } from "./centrosCostosTypes";
+
 import CentrosCostosTable from "./CentrosCostosTable";
 import CentroCostoForm from "./CentroCostoForm";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -20,22 +24,23 @@ const CentrosCostosPage: React.FC = () => {
   const orgId = user?.organizacion_id || 1;
 
   const [centros, setCentros] = useState<CentroCosto[]>([]);
+
   const [page, setPage] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Modales para crear/editar
+  // Modal Crear/Editar
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCentro, setSelectedCentro] = useState<CentroCosto | null>(null);
 
-  // Modal de detalles
+  // Modal Detalles
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [detailCentro, setDetailCentro] = useState<CentroCosto | null>(null);
 
-  // Modal de confirmación de eliminación
+  // Modal Confirm Eliminar
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -45,11 +50,21 @@ const CentrosCostosPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, page, search]);
 
-  async function fetchCentros(
-    orgId: number,
-    pageNumber: number,
-    searchText: string
-  ) {
+  /**
+   * Función que recibe "PRINCIPAL" | "SUBCENTRO" | null 
+   * y retorna algo (puedes adaptarla según tu necesidad).
+   * Aquí simplemente la dejamos como "passthrough" si no 
+   * requieres una transformación extra.
+   */
+  function mapNivelString(
+    nivel: "PRINCIPAL" | "SUBCENTRO" | null
+  ): "PRINCIPAL" | "SUBCENTRO" | null {
+    // Si quieres transformar, hazlo aquí, p. ej. un switch.
+    // Por ahora, lo retornamos tal cual o forzamos un fallback:
+    return nivel;
+  }
+
+  async function fetchCentros(orgId: number, pageNumber: number, searchText: string) {
     setLoading(true);
     setError(null);
     try {
@@ -59,7 +74,14 @@ const CentrosCostosPage: React.FC = () => {
         pageNumber,
         10
       );
-      setCentros(resp.data);
+      // Ajustamos el 'nivel' de string|null para que sea
+      // conforme a "PRINCIPAL" | "SUBCENTRO" | null
+      const mappedCentros: CentroCosto[] = resp.data.map((ccApi) => ({
+        ...ccApi,
+        // ccApi.nivel se asume es "PRINCIPAL"| "SUBCENTRO"| null
+        nivel: mapNivelString(ccApi.nivel as any), 
+      }));
+      setCentros(mappedCentros);
       setPage(resp.page);
       setTotalPaginas(resp.total_paginas);
     } catch (err) {
@@ -79,13 +101,13 @@ const CentrosCostosPage: React.FC = () => {
     setPage(1);
   }
 
-  /** Crear => abre modal en modo creación */
+  /** Crear => abrir modal en modo creación */
   function handleCreate() {
     setSelectedCentro(null);
     setIsCreateOpen(true);
   }
 
-  /** Editar => busca el centro y abre modal de edición */
+  /** Editar => buscar en centros y abrir modal edición */
   function handleEdit(id: number) {
     const found = centros.find((c) => c.id === id) || null;
     setSelectedCentro(found);
@@ -99,7 +121,6 @@ const CentrosCostosPage: React.FC = () => {
     setIsConfirmOpen(true);
   }
 
-  /** Confirmar la eliminación */
   async function confirmDelete() {
     if (!selectedCentro) return;
     try {
@@ -115,7 +136,6 @@ const CentrosCostosPage: React.FC = () => {
     }
   }
 
-  /** Cerrar todos los modales */
   function closeModals() {
     setIsCreateOpen(false);
     setIsEditOpen(false);
@@ -240,7 +260,7 @@ const CentrosCostosPage: React.FC = () => {
         onEdit={handleEdit}
       />
 
-      {/* Modal Confirmación Eliminar */}
+      {/* Modal Confirm Eliminar */}
       <ConfirmModal
         isOpen={isConfirmOpen}
         onRequestClose={closeModals}

@@ -5,7 +5,6 @@ import Modal from "react-modal";
 import { toast } from "react-toastify";
 import { Bodega, BodegaPayload } from "./bodegasTypes";
 import { crearBodega, actualizarBodega } from "../../api/bodegasAPI";
-// Si deseas listar sucursales:
 import { getSucursales } from "../../api/sucursalesAPI";
 import { Sucursal } from "../Sucursales/sucursalesTypes";
 
@@ -14,9 +13,9 @@ Modal.setAppElement("#root");
 interface BodegaFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;   // Para recargar la lista
+  onSuccess: () => void; 
   organizacionId: number;
-  bodega?: Bodega | null;  // Modo edición si no es null
+  bodega?: Bodega; // Usamos Opción #2 => bodega?: Bodega;
 }
 
 const initialForm: BodegaPayload = {
@@ -36,10 +35,10 @@ const BodegaForm: React.FC<BodegaFormProps> = ({
 }) => {
   const [formData, setFormData] = useState<BodegaPayload>(initialForm);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Cargar sucursales:
       loadSucursales();
 
       if (bodega) {
@@ -63,9 +62,7 @@ const BodegaForm: React.FC<BodegaFormProps> = ({
 
   async function loadSucursales() {
     try {
-      // Si tienes paginación en sucursales, puedes traer sólo sin search, etc.
-      const resp = await getSucursales(organizacionId, "", 1, 9999); 
-      // resp es {data, page, ...}
+      const resp = await getSucursales(organizacionId, "", 1, 9999);
       setSucursales(resp.data);
     } catch (err) {
       console.error("Error al cargar sucursales:", err);
@@ -73,9 +70,13 @@ const BodegaForm: React.FC<BodegaFormProps> = ({
     }
   }
 
+  // --- AQUÍ ESTÁ EL CAMBIO CRÍTICO:
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, type, checked, value } = e.target;
+    const { name, type, value } = e.target;
+
     if (type === "checkbox") {
+      // Forzamos a TS a tratarlo como HTMLInputElement
+      const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else if (name === "sucursal_id") {
       setFormData((prev) => ({ ...prev, sucursal_id: Number(value) }));
@@ -86,6 +87,10 @@ const BodegaForm: React.FC<BodegaFormProps> = ({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (loading) return; 
+    setLoading(true);
+
     try {
       if (bodega && bodega.id) {
         // Actualizar
@@ -105,6 +110,8 @@ const BodegaForm: React.FC<BodegaFormProps> = ({
       } else {
         toast.error("Ocurrió un error al guardar la bodega.");
       }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -188,11 +195,20 @@ const BodegaForm: React.FC<BodegaFormProps> = ({
         </div>
 
         <div className="flex justify-end gap-2 mt-4">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancelar
           </button>
-          <button type="submit" className="btn-primary bg-blue-600">
-            Guardar
+          <button
+            type="submit"
+            className="btn-primary bg-blue-600"
+            disabled={loading}
+          >
+            {loading ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </form>

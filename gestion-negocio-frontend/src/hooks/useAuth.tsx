@@ -1,6 +1,6 @@
 // src/hooks/useAuth.tsx
 
-import React, {
+import {
   useState,
   useEffect,
   useContext,

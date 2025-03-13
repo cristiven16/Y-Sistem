@@ -17,11 +17,11 @@ export interface Departamento {
     organizacion_id: number;   // O si no lo maneja, ajusta
     nombre: string;
     pais?: string;
-    departamento_id?: number | null;
-    ciudad_id?: number | null;
-    direccion?: string | null;
-    telefonos?: string | null;
-    prefijo_transacciones?: string | null;
+    departamento_id?: number | undefined;
+    ciudad_id?: number | undefined;
+    direccion?: string | undefined;
+    telefonos?: string | undefined;
+    prefijo_transacciones?: string | undefined;
     sucursal_principal: boolean;
     activa: boolean;
     // Si tu backend retorna las relaciones
@@ -34,11 +34,11 @@ export interface Departamento {
     organizacion_id: number;
     nombre: string;
     pais?: string;
-    departamento_id?: number | null;
-    ciudad_id?: number | null;
-    direccion?: string | null;
-    telefonos?: string | null;
-    prefijo_transacciones?: string | null;
+    departamento_id?: number | undefined;
+    ciudad_id?: number | undefined;
+    direccion?: string | undefined;
+    telefonos?: string | undefined;
+    prefijo_transacciones?: string | undefined;
     sucursal_principal: boolean;
     activa: boolean;
   }

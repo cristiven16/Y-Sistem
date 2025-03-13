@@ -210,7 +210,7 @@ const BodegasPage: React.FC = () => {
       {/* Modal Editar Bodega */}
       <BodegaForm
         isOpen={isEditOpen}
-        bodega={selectedBodega}
+        bodega={selectedBodega ?? undefined}
         onClose={closeModals}
         onSuccess={() => {
           if (!orgId) return;

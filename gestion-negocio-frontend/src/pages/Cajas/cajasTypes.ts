@@ -10,7 +10,7 @@
         nombre: string;
         estado: boolean;
         vigencia: boolean;
-        // sucursal?: { id: number; nombre: string }; // opcional
+        sucursal?: { id: number; nombre: string }; // opcional
       }
       
       /** Payload para crear/actualizar */

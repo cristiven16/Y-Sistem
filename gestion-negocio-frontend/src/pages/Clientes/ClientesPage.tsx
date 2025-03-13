@@ -7,6 +7,7 @@ import ClientesTable from "./ClientesTable";
 import ClienteForm from "./ClienteForm";
 import ClienteDetailsModal from "../../components/ClienteDetailsModal";
 import ConfirmModal from "../../components/ConfirmModal";
+import { Cliente } from "./clientesTypes";
 
 // Importa tus funciones de clientesAPI
 import { 
@@ -19,13 +20,6 @@ import {
  * o reutiliza "ClienteResponse" de clientesTypes.ts 
  * si prefieres un tipado más completo.
  */
-interface Cliente {
-  id: number;
-  nombre_razon_social: string;
-  numero_documento: string;
-  direccion: string;
-  // ... más campos si lo requieres ...
-}
 
 const ClientesPage: React.FC = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -247,7 +241,7 @@ const ClientesPage: React.FC = () => {
       {/* Modal Editar */}
       <ClienteForm
         isOpen={isEditOpen}
-        cliente={selectedCliente} // pasa el cliente seleccionado
+        cliente={selectedCliente ?? undefined} // pasa el cliente seleccionado
         onClose={closeModals}
         onSuccess={() => {
           fetchClientes(page, search);

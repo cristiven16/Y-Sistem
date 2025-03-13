@@ -1,9 +1,10 @@
-// src/pages/Proveedores/ProveedorForm.tsx
+// gestion-negocio-frontend/src/pages/Proveedores/ProveedorForm.tsx
+
 import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import { toast } from "react-toastify";
 
-// APIs para Proveedores y catálogos
+// APIs para Proveedores
 import {
   crearProveedor,
   actualizarProveedor,
@@ -18,28 +19,43 @@ import {
   obtenerRetenciones,
 } from "../../api/proveedoresAPI";
 
-// APIs de ubicaciones
+// APIs de ubicaciones (departamentos, ciudades)
 import { obtenerDepartamentos, obtenerCiudades } from "../../api/ubicacionesAPI";
 
 // Tipos
-import { ProveedorPayload, Proveedor, TipoDocumento, Departamento, Ciudad } from "./proveedoresTypes";
+import {
+  ProveedorPayload,
+  ProveedorResponse,
+  TipoDocumento,
+  Departamento,
+  Ciudad,
+} from "./proveedoresTypes";
 
+// Configurar elemento root para evitar warning de React-Modal
 Modal.setAppElement("#root");
 
+/**
+ * Función auxiliar para capitalizar cada palabra
+ */
 function capitalizeWords(str: string): string {
   return str
     .toLowerCase()
     .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
-// Estado inicial
+/**
+ * Estado inicial del formulario,
+ * en sintonía con ProveedorPayload
+ */
 const initialFormData: ProveedorPayload = {
+  organizacion_id: 1, // Ajusta si lo necesitas variable
   tipo_documento: undefined,
   numero_documento: "",
   nombre_razon_social: "",
-  email: "",
+  email: undefined,
+  pagina_web: undefined,
 
   departamento: undefined,
   ciudad: undefined,
@@ -55,12 +71,11 @@ const initialFormData: ProveedorPayload = {
   moneda_principal_id: 1,
   tarifa_precios_id: 1,
   forma_pago_id: 1,
+
   permitir_venta: true,
   descuento: 0,
   cupo_credito: 0,
   sucursal_id: 1,
-
-  pagina_web: "",
   actividad_economica_id: undefined,
   retencion_id: undefined,
   observacion: "",
@@ -70,7 +85,7 @@ interface ProveedorFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  proveedor?: Proveedor | null; // Podrías usar ProveedorResponse si lo deseas
+  proveedor?: ProveedorResponse; // Puede venir del padre (opcional)
 }
 
 const ProveedorForm: React.FC<ProveedorFormProps> = ({
@@ -95,23 +110,52 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [departamentosCargados, setDepartamentosCargados] = useState(false);
 
-  // Form data
+  // Estado del formulario
   const [formData, setFormData] = useState<ProveedorPayload>(initialFormData);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // NUEVO estado para bloquear botón mientras se envía:
+  const [saving, setSaving] = useState(false);
+
+  /**
+   * Efecto principal: si se abre el modal, cargar catálogos
+   * y setear datos si es modo edición
+   */
   useEffect(() => {
     if (isOpen) {
       cargarCatalogos();
       if (proveedor) {
-        // Modo edición
+        // Modo edición: mapear proveedor => formData
         setFormData({
-          tipo_documento: proveedor.tipo_documento || undefined,
+          organizacion_id: proveedor.organizacion_id ?? 1,
+
+          // Creamos un objeto "tipo_documento" con ID (y placeholders para nombre)
+          tipo_documento: proveedor.tipo_documento_id
+            ? {
+                id: proveedor.tipo_documento_id,
+                nombre: "Desconocido", // Ajusta si no tienes data relacional
+                abreviatura: "N/A",
+              }
+            : undefined,
+
           numero_documento: proveedor.numero_documento,
           nombre_razon_social: proveedor.nombre_razon_social,
-          email: proveedor.email || "",
+          email: proveedor.email || undefined,
+          pagina_web: proveedor.pagina_web || undefined,
 
-          departamento: proveedor.departamento,
-          ciudad: proveedor.ciudad,
+          // Mapeamos departamento y ciudad
+          departamento: proveedor.departamento
+            ? {
+                id: proveedor.departamento_id,
+                nombre: proveedor.departamento.nombre,
+              }
+            : undefined,
+          ciudad: proveedor.ciudad
+            ? {
+                id: proveedor.ciudad_id,
+                nombre: proveedor.ciudad.nombre,
+              }
+            : undefined,
           direccion: proveedor.direccion,
 
           telefono1: proveedor.telefono1 || "",
@@ -124,23 +168,25 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           moneda_principal_id: proveedor.moneda_principal_id,
           tarifa_precios_id: proveedor.tarifa_precios_id,
           forma_pago_id: proveedor.forma_pago_id,
+
           permitir_venta: proveedor.permitir_venta,
           descuento: proveedor.descuento,
           cupo_credito: proveedor.cupo_credito,
           sucursal_id: proveedor.sucursal_id,
-
-          pagina_web: proveedor.pagina_web || "",
           actividad_economica_id: proveedor.actividad_economica_id,
           retencion_id: proveedor.retencion_id,
           observacion: proveedor.observacion || "",
         });
       } else {
-        // Modo creación
+        // Modo creación: limpiamos al inicial
         setFormData(initialFormData);
       }
     }
   }, [isOpen, proveedor]);
 
+  /**
+   * Cargar catálogos en paralelo
+   */
   const cargarCatalogos = async () => {
     try {
       const [
@@ -164,6 +210,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
         obtenerActividadesEconomicas(),
         obtenerRetenciones(),
       ]);
+
       setTiposDocumento(tdRes);
       setRegimenes(regRes);
       setTiposPersona(tpRes);
@@ -179,6 +226,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
     }
   };
 
+  /**
+   * Cargar departamentos al enfocar el select (si no se han cargado)
+   */
   const handleFocusDepartamento = async () => {
     if (!departamentosCargados) {
       try {
@@ -191,6 +241,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
     }
   };
 
+  /**
+   * Al cambiar departamento, recargamos ciudades
+   */
   useEffect(() => {
     if (formData.departamento?.id) {
       cargarCiudades(formData.departamento.id);
@@ -200,6 +253,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
     }
   }, [formData.departamento?.id]);
 
+  /**
+   * Cargar ciudades de un departamento
+   */
   const cargarCiudades = async (depId: number) => {
     try {
       const data = await obtenerCiudades(depId);
@@ -209,37 +265,41 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
     }
   };
 
+  /**
+   * Manejo de inputs y selects
+   */
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
-    const { name, value, checked } = e.target;
+    const { name, value } = e.target;
 
-    // Filtrar dígitos
+    // Filtrar dígitos para ciertos campos
     if (
-      ["numero_documento","telefono1","telefono2","celular","whatsapp"].includes(name)
+      ["numero_documento", "telefono1", "telefono2", "celular", "whatsapp"].includes(
+        name
+      )
     ) {
       const soloDigitos = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
       return;
     }
 
-    // Checkbox
-    if (name === "permitir_venta") {
-      setFormData((prev) => ({ ...prev, permitir_venta: checked }));
-      return;
-    }
-
-    // Selects numéricos
-    if ([
-      "tipos_persona_id",
-      "regimen_tributario_id",
-      "moneda_principal_id",
-      "tarifa_precios_id",
-      "forma_pago_id",
-      "sucursal_id",
-      "actividad_economica_id",
-      "retencion_id",
-    ].includes(name)) {
+    // Campos numéricos (IDs)
+    if (
+      [
+        "organizacion_id",
+        "tipos_persona_id",
+        "regimen_tributario_id",
+        "moneda_principal_id",
+        "tarifa_precios_id",
+        "forma_pago_id",
+        "sucursal_id",
+        "actividad_economica_id",
+        "retencion_id",
+      ].includes(name)
+    ) {
       setFormData((prev) => ({
         ...prev,
         [name]: value === "" ? undefined : Number(value),
@@ -247,27 +307,39 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       return;
     }
 
-    // Email => permitir ""
+    // Email => undefined si está vacío
     if (name === "email") {
       setFormData((prev) => ({
         ...prev,
-        email: value.trim() === "" ? "" : value,
+        email: value.trim() === "" ? undefined : value,
       }));
       return;
     }
 
+    // Resto
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Manejo de checkbox "permitir_venta"
+   */
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { checked } = e.target;
+    setFormData((prev) => ({ ...prev, permitir_venta: checked }));
+  };
+
+  /**
+   * Select "tipo_documento"
+   */
   const handleTipoDocumentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const found = tiposDocumento.find((td) => td.id === selectedId);
-    setFormData((prev) => ({
-      ...prev,
-      tipo_documento: found,
-    }));
+    setFormData((prev) => ({ ...prev, tipo_documento: found }));
   };
 
+  /**
+   * Select "departamento"
+   */
   const handleDepartamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const dep = departamentos.find((d) => d.id === selectedId);
@@ -278,48 +350,101 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
     }));
   };
 
+  /**
+   * Select "ciudad"
+   */
   const handleCiudadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = Number(e.target.value);
     const c = ciudades.find((ci) => ci.id === selectedId);
     setFormData((prev) => ({ ...prev, ciudad: c }));
   };
 
+  /**
+   * Submit del formulario
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validaciones mínimas
-    if (!formData.numero_documento || !formData.nombre_razon_social) {
-      toast.error("Documento y Nombre son obligatorios.");
-      return;
-    }
-    if (
-      !formData.telefono1 &&
-      !formData.telefono2 &&
-      !formData.celular &&
-      !formData.whatsapp
-    ) {
-      toast.error("Debe ingresar al menos un teléfono o celular.");
-      return;
-    }
-    if (!formData.departamento) {
-      toast.error("Debe seleccionar un departamento.");
-      return;
-    }
-    if (!formData.ciudad) {
-      toast.error("Debe seleccionar una ciudad.");
-      return;
-    }
+    // NUEVO: evitar doble envío
+    if (saving) return;       // si ya está guardando, no hacer nada
+    setSaving(true);          // marcar que estamos guardando
 
     try {
+      // Validaciones mínimas
+      if (!formData.numero_documento || !formData.nombre_razon_social) {
+        toast.error("Documento y Nombre son obligatorios.");
+        return;
+      }
+      if (
+        !formData.telefono1 &&
+        !formData.telefono2 &&
+        !formData.celular &&
+        !formData.whatsapp
+      ) {
+        toast.error("Debe ingresar al menos un teléfono o celular.");
+        return;
+      }
+      if (!formData.departamento) {
+        toast.error("Debe seleccionar un departamento.");
+        return;
+      }
+      if (!formData.ciudad) {
+        toast.error("Debe seleccionar una ciudad.");
+        return;
+      }
+      if (!formData.tipo_documento?.id) {
+        toast.error("Debe seleccionar el tipo de documento.");
+        return;
+      }
+      if (!formData.organizacion_id) {
+        toast.error("Falta asignar la organización del proveedor.");
+        return;
+      }
+
+      // Aplanar el payload antes de llamar a la API
+      const payload = {
+        organizacion_id: formData.organizacion_id,
+        tipo_documento_id: formData.tipo_documento.id,
+        numero_documento: formData.numero_documento,
+        nombre_razon_social: formData.nombre_razon_social,
+        email: formData.email,
+        pagina_web: formData.pagina_web,
+
+        departamento_id: formData.departamento.id,
+        ciudad_id: formData.ciudad.id,
+        direccion: formData.direccion,
+
+        telefono1: formData.telefono1,
+        telefono2: formData.telefono2,
+        celular: formData.celular,
+        whatsapp: formData.whatsapp,
+
+        tipos_persona_id: formData.tipos_persona_id,
+        regimen_tributario_id: formData.regimen_tributario_id,
+        moneda_principal_id: formData.moneda_principal_id,
+        tarifa_precios_id: formData.tarifa_precios_id,
+        forma_pago_id: formData.forma_pago_id,
+
+        permitir_venta: formData.permitir_venta,
+        descuento: Number(formData.descuento),
+        cupo_credito: Number(formData.cupo_credito),
+        sucursal_id: formData.sucursal_id,
+        actividad_economica_id: formData.actividad_economica_id,
+        retencion_id: formData.retencion_id,
+        observacion: formData.observacion,
+      };
+
       if (proveedor && proveedor.id) {
-        // Actualizar => PATCH
-        await actualizarProveedor(proveedor.id, aplanarPayload(formData));
+        // Actualizar
+        await actualizarProveedor(proveedor.id, payload);
         toast.success("Proveedor actualizado con éxito.");
       } else {
-        // Crear => POST
-        await crearProveedor(aplanarPayload(formData));
+        // Crear
+        await crearProveedor(payload);
         toast.success("Proveedor creado con éxito.");
       }
+
+      // Limpiar form y cerrar
       setFormData(initialFormData);
       onClose();
       onSuccess();
@@ -330,48 +455,12 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       } else {
         toast.error("Ocurrió un error al guardar el proveedor.");
       }
+    } finally {
+      setSaving(false); // re-habilitamos el botón
     }
   };
 
-  /**
-   * Función para "aplanar" el formData (con subobjetos)
-   * y obtener { tipo_documento_id, departamento_id, ciudad_id, ... }
-   */
-  const aplanarPayload = (data: ProveedorPayload) => {
-    return {
-      // O a tu preferencia: si la org es fija => organizacion_id: 1, ...
-      organizacion_id: 1, 
-
-      tipo_documento_id: data.tipo_documento?.id,
-      numero_documento: data.numero_documento,
-      nombre_razon_social: data.nombre_razon_social,
-      email: data.email || null,
-      pagina_web: data.pagina_web || null,
-
-      departamento_id: data.departamento?.id,
-      ciudad_id: data.ciudad?.id,
-      direccion: data.direccion,
-
-      telefono1: data.telefono1,
-      telefono2: data.telefono2,
-      celular: data.celular,
-      whatsapp: data.whatsapp,
-
-      tipos_persona_id: data.tipos_persona_id,
-      regimen_tributario_id: data.regimen_tributario_id,
-      moneda_principal_id: data.moneda_principal_id,
-      tarifa_precios_id: data.tarifa_precios_id,
-      forma_pago_id: data.forma_pago_id,
-      permitir_venta: data.permitir_venta,
-      descuento: data.descuento,
-      cupo_credito: data.cupo_credito,
-      sucursal_id: data.sucursal_id,
-      actividad_economica_id: data.actividad_economica_id,
-      retencion_id: data.retencion_id,
-      observacion: data.observacion,
-    };
-  };
-
+  // Si el modal no está abierto, no renderizamos
   if (!isOpen) return null;
 
   return (
@@ -387,6 +476,8 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       <button
         onClick={onClose}
         className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+        // Opcional: deshabilitar botón de cerrar mientras se guarda
+        disabled={saving}
       >
         ✕
       </button>
@@ -396,8 +487,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
       </h2>
 
       <form onSubmit={handleSubmit}>
-        {/* FILA 1 */}
+        {/* Fila 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          {/* Tipo de Documento */}
           <div>
             <label className="label" htmlFor="tipo_documento">
               Tipo de Documento
@@ -417,6 +509,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
             </select>
           </div>
 
+          {/* Número Documento */}
           <div>
             <label className="label" htmlFor="numero_documento">
               Número de Documento
@@ -432,6 +525,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
             />
           </div>
 
+          {/* Nombre / Razón Social */}
           <div>
             <label className="label" htmlFor="nombre_razon_social">
               Nombre / Razón Social
@@ -448,8 +542,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         </div>
 
-        {/* FILA 2 */}
+        {/* Fila 2 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          {/* Email */}
           <div>
             <label className="label" htmlFor="email">
               Correo Electrónico
@@ -458,12 +553,13 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
               type="email"
               id="email"
               name="email"
-              value={formData.email || ""}
+              value={formData.email ?? ""}
               onChange={handleChange}
               className="input-field"
             />
           </div>
 
+          {/* Departamento */}
           <div>
             <label className="label" htmlFor="departamento">
               Departamento
@@ -484,6 +580,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
             </select>
           </div>
 
+          {/* Ciudad */}
           <div>
             <label className="label" htmlFor="ciudad">
               Ciudad
@@ -505,8 +602,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         </div>
 
-        {/* FILA 3 */}
+        {/* Fila 3 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          {/* Dirección */}
           <div>
             <label className="label" htmlFor="direccion">
               Dirección
@@ -521,6 +619,8 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
               required
             />
           </div>
+
+          {/* Teléfono 1 */}
           <div>
             <label className="label" htmlFor="telefono1">
               Teléfono 1
@@ -534,6 +634,8 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
               className="input-field"
             />
           </div>
+
+          {/* Teléfono 2 */}
           <div>
             <label className="label" htmlFor="telefono2">
               Teléfono 2
@@ -549,8 +651,9 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         </div>
 
-        {/* FILA 4 */}
+        {/* Fila 4 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          {/* Celular */}
           <div>
             <label className="label" htmlFor="celular">
               Celular
@@ -564,6 +667,8 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
               className="input-field"
             />
           </div>
+
+          {/* WhatsApp */}
           <div>
             <label className="label" htmlFor="whatsapp">
               WhatsApp
@@ -580,16 +685,20 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           <div className="hidden lg:block" />
         </div>
 
+        {/* Botón para ver/ocultar detalles avanzados */}
         <div className="mb-3">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="btn-secondary"
           >
-            {showAdvanced ? "Ocultar detalles opcionales" : "Mostrar detalles opcionales"}
+            {showAdvanced
+              ? "Ocultar detalles opcionales"
+              : "Mostrar detalles opcionales"}
           </button>
         </div>
 
+        {/* Sección avanzada */}
         {showAdvanced && (
           <div className="border p-3 rounded-lg mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -633,7 +742,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 </select>
               </div>
 
-              {/* Moneda principal */}
+              {/* Moneda Principal */}
               <div>
                 <label className="label" htmlFor="moneda_principal_id">
                   Moneda Principal
@@ -706,7 +815,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                   className="input-field"
                 >
                   <option value="">No especificado</option>
-                  {actividadesEco.map((a) => (
+                  {actividadesEco.map((a: any) => (
                     <option key={a.id} value={a.id}>
                       {a.nombre}
                     </option>
@@ -727,7 +836,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                   className="input-field"
                 >
                   <option value="">No aplica</option>
-                  {retenciones.map((rt) => (
+                  {retenciones.map((rt: any) => (
                     <option key={rt.id} value={rt.id}>
                       {rt.nombre}
                     </option>
@@ -747,7 +856,7 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                   onChange={handleChange}
                   className="input-field"
                 >
-                  {sucursales.map((suc) => (
+                  {sucursales.map((suc: any) => (
                     <option key={suc.id} value={suc.id}>
                       {suc.nombre}
                     </option>
@@ -802,14 +911,14 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
                 />
               </div>
 
-              {/* Permitir Venta */}
+              {/* Permitir Venta (checkbox) */}
               <div className="flex items-center gap-2 mt-2">
                 <input
                   type="checkbox"
                   id="permitir_venta"
                   name="permitir_venta"
                   checked={formData.permitir_venta}
-                  onChange={handleChange}
+                  onChange={handleCheckboxChange}
                 />
                 <label htmlFor="permitir_venta" className="label">
                   Permitir Venta
@@ -834,12 +943,23 @@ const ProveedorForm: React.FC<ProveedorFormProps> = ({
           </div>
         )}
 
+        {/* Botones de acción */}
         <div className="modal-actions flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+            disabled={saving} // Deshabilita "Cancelar" si quieres
+          >
             Cancelar
           </button>
-          <button type="submit" className="btn-primary bg-blue-600">
-            Guardar
+          <button
+            type="submit"
+            className="btn-primary bg-blue-600"
+            disabled={saving} // Bloquea mientras se está guardando
+          >
+            {/* Mostrar "Guardando..." si está en proceso */}
+            {saving ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </form>

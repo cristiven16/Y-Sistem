@@ -1,4 +1,4 @@
-// src/pages/CentrosCostos/CentroCostoForm.tsx
+// src/pages/CentroCostos/CentroCostoForm.tsx
 
 import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
@@ -21,13 +21,12 @@ interface CentroCostoFormProps {
 
 /**
  * Valores iniciales para crear un nuevo centro de costo.
- * Observa que `nivel` se declara como `null` para indicar "no seleccionado".
  */
 const initialForm: CentroCostoPayload = {
   organizacion_id: 0,
   codigo: "",
   nombre: "",
-  nivel: null,             // <-- 'PRINCIPAL' | 'SUBCENTRO' | null
+  nivel: null,        // "PRINCIPAL" | "SUBCENTRO" | null
   padre_id: null,
   permite_ingresos: true,
   estado: true,
@@ -51,13 +50,13 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
           organizacion_id: centro.organizacion_id,
           codigo: centro.codigo,
           nombre: centro.nombre,
-          nivel: centro.nivel,      // puede ser "PRINCIPAL", "SUBCENTRO" o null
+          nivel: centro.nivel,       // ya es "PRINCIPAL" | "SUBCENTRO" | null
           padre_id: centro.padre_id,
           permite_ingresos: centro.permite_ingresos,
           estado: centro.estado,
         });
       } else {
-        // Modo creación: reseteamos con organizacionId
+        // Modo creación
         setFormData({
           ...initialForm,
           organizacion_id: organizacionId,
@@ -67,25 +66,19 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
   }, [isOpen, centro, organizacionId]);
 
   /**
-   * Manejador de cambios en los inputs.
-   * - `nivel` se maneja como <select>, con opción de "" -> null.
-   * - `padre_id` es un número (o null).
-   * - `permite_ingresos` y `estado` son checkboxes (boolean).
+   * Handler para inputs (type="text"|"number") y selects (nivel).
    */
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) {
-    const { name, value, type, checked } = e.target;
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
 
-    if (type === "checkbox") {
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "padre_id") {
+    if (name === "padre_id") {
+      // Convierte a number o null
       setFormData((prev) => ({
         ...prev,
         padre_id: value ? Number(value) : null,
       }));
     } else if (name === "nivel") {
-      // Si el select está vacío => null, si no => "PRINCIPAL" o "SUBCENTRO"
+      // Si el select está vacío => null, si no => "PRINCIPAL" | "SUBCENTRO"
       setFormData((prev) => ({
         ...prev,
         nivel: value === "" ? null : (value as "PRINCIPAL" | "SUBCENTRO"),
@@ -96,8 +89,16 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
   }
 
   /**
-   * Al enviar el formulario, llamamos a crear o actualizar según
-   * si estamos en modo edición (centro con id) o creación.
+   * Handler exclusivo para checkboxes.
+   */
+  function handleCheckboxChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  }
+
+  /**
+   * Al enviar el formulario, llamamos a crear o actualizar
+   * usando EXACTAMENTE lo que está en formData (nivel como string).
    */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -156,7 +157,7 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
             name="codigo"
             className="input-field"
             value={formData.codigo}
-            onChange={handleChange}
+            onChange={handleInputChange} // NO checkbox
             required
           />
         </div>
@@ -172,7 +173,7 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
             name="nombre"
             className="input-field"
             value={formData.nombre}
-            onChange={handleChange}
+            onChange={handleInputChange} // NO checkbox
             required
           />
         </div>
@@ -187,7 +188,7 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
             name="nivel"
             className="input-field"
             value={formData.nivel ?? ""}
-            onChange={handleChange}
+            onChange={handleInputChange} // NO checkbox
           >
             <option value="">-- Seleccione --</option>
             <option value="PRINCIPAL">PRINCIPAL</option>
@@ -195,7 +196,7 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
           </select>
         </div>
 
-        {/* PADRE_ID */}
+        {/* PADRE_ID (optional) */}
         <div>
           <label className="label" htmlFor="padre_id">
             ID del Padre (opcional)
@@ -206,33 +207,33 @@ const CentroCostoForm: React.FC<CentroCostoFormProps> = ({
             name="padre_id"
             className="input-field"
             value={formData.padre_id ?? ""}
-            onChange={handleChange}
+            onChange={handleInputChange} // NO checkbox
             placeholder="ID del centro de costo padre"
           />
         </div>
 
-        {/* PERMITE_INGRESOS */}
+        {/* PERMITE_INGRESOS (checkbox) */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
             id="permite_ingresos"
             name="permite_ingresos"
             checked={formData.permite_ingresos}
-            onChange={handleChange}
+            onChange={handleCheckboxChange} // SÍ checkbox
           />
           <label htmlFor="permite_ingresos" className="label">
             ¿Permite Ingresos?
           </label>
         </div>
 
-        {/* ESTADO */}
+        {/* ESTADO (checkbox) */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
             id="estado"
             name="estado"
             checked={formData.estado}
-            onChange={handleChange}
+            onChange={handleCheckboxChange} // SÍ checkbox
           />
           <label htmlFor="estado" className="label">
             ¿Centro activo?

@@ -17,6 +17,11 @@ import SucursalesPage from "../pages/Sucursales/SucursalesPage";
 import BodegasPage from "../pages/Bodegas/BodegasPage";
 import CajasPage from "../pages/Cajas/CajasPage";
 import CentrosCostosPage from "../pages/CentroCostos/CentrosCostosPage";
+import NumTransaccionesPage from "../pages/NumeracionTransaccion/NumTransaccionesPage";
+import TiendasVirtualesPage from "../pages/TiendasVirtuales/TiendasVirtualesPage";
+import UsuariosPage from "../pages/Usuarios/UsuariosPage";
+import RolesPage from "../pages/Roles/RolesPage";
+import PermissionsPage from "../pages/Permissions/PermissionsPage";
 
 export default function AppRoutes() {
   return (
@@ -83,6 +88,15 @@ export default function AppRoutes() {
       />
 
       <Route
+        path="/tiendas-virtuales"
+        element={
+          <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
+            <TiendasVirtualesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/bodegas"
         element={
           <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
@@ -108,12 +122,47 @@ export default function AppRoutes() {
         }
       />
 
+      <Route
+        path="/numeraciones"
+        element={
+          <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
+            <NumTransaccionesPage />
+          </ProtectedRoute>
+        }
+      />
+
+
       {/* Planes => solo Superadmin */}
       <Route
         path="/plans"
         element={
           <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN]}>
             <PlanesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/usuarios"
+        element={
+          <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
+            <UsuariosPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/roles"
+        element={
+          <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
+            <RolesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/permisos"
+        element={
+          <ProtectedRoute allowedRoles={[ROLE_SUPERADMIN, ROLE_ADMIN]}>
+            <PermissionsPage />
           </ProtectedRoute>
         }
       />

@@ -32,7 +32,7 @@ import {
   TipoDocumento,
   Departamento,
   Ciudad,
-  ClienteResponse // si deseas
+  Cliente // si deseas
 } from "./clientesTypes";
 
 Modal.setAppElement("#root");
@@ -53,7 +53,7 @@ const initialFormData: ClientePayload = {
   tipo_documento: undefined,
   numero_documento: "",
   nombre_razon_social: "",
-  email: null,
+  email: undefined,
 
   departamento: undefined,
   ciudad: undefined,
@@ -75,7 +75,7 @@ const initialFormData: ClientePayload = {
   organizacion_id: 1,
 
   sucursal_id: 1,
-  vendedor_id: null,
+  vendedor_id: undefined,
   pagina_web: "",
   actividad_economica_id: undefined,
   retencion_id: undefined,
@@ -88,7 +88,7 @@ interface ClienteFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  cliente?: ClienteResponse | null; // o tu interfaz "Cliente"
+  cliente?: Cliente | undefined; // o tu interfaz "Cliente"
 }
 
 const ClienteForm: React.FC<ClienteFormProps> = ({
@@ -134,7 +134,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           },
           numero_documento: cliente.numero_documento,
           nombre_razon_social: cliente.nombre_razon_social,
-          email: cliente.email || null,
+          email: cliente.email || undefined,
 
           departamento: cliente.departamento
             ? { id: cliente.departamento_id, nombre: cliente.departamento.nombre }
@@ -158,7 +158,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
           descuento: cliente.descuento,
           cupo_credito: cliente.cupo_credito,
           sucursal_id: cliente.sucursal_id || 1,
-          vendedor_id: cliente.vendedor_id || null,
+          vendedor_id: cliente.vendedor_id || undefined,
           pagina_web: cliente.pagina_web || "",
           actividad_economica_id: cliente.actividad_economica_id,
           retencion_id: cliente.retencion_id,
@@ -249,24 +249,18 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
   };
 
-  // Manejo de cambios
+  // Manejo de cambios (para inputs y selects)
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    const { name, value, checked } = e.target;
+    const { name, value } = e.target;
 
     // Filtrar dígitos
     if (["numero_documento","telefono1","telefono2","celular","whatsapp"].includes(name)) {
       const soloDigitos = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: soloDigitos }));
-      return;
-    }
-
-    // Checkbox
-    if (name === "permitir_venta") {
-      setFormData((prev) => ({ ...prev, permitir_venta: checked }));
       return;
     }
 
@@ -291,11 +285,11 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
       return;
     }
 
-    // Email => null
+    // Email => undefined
     if (name === "email") {
       setFormData((prev) => ({
         ...prev,
-        email: value.trim() === "" ? null : value,
+        email: value.trim() === "" ? undefined : value,
       }));
       return;
     }
@@ -304,12 +298,20 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     if (name === "vendedor_id") {
       setFormData((prev) => ({
         ...prev,
-        vendedor_id: value === "" ? null : Number(value),
+        vendedor_id: value === "" ? undefined : Number(value),
       }));
       return;
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Nuevo handler para el checkbox
+  const handleCheckboxChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { checked } = e.target;
+    setFormData((prev) => ({ ...prev, permitir_venta: checked }));
   };
 
   // Select para tipo_documento
@@ -432,7 +434,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) return undefined;
 
   return (
     <Modal
@@ -927,7 +929,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({
                   id="permitir_venta"
                   name="permitir_venta"
                   checked={formData.permitir_venta}
-                  onChange={handleChange}
+                  onChange={handleCheckboxChange} // <--- nuevo handler
                 />
                 <label htmlFor="permitir_venta" className="label">
                   Permitir Venta

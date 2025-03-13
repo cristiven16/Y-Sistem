@@ -26,5 +26,6 @@ from .auditoria import AuditLog
 from .organizaciones import Organizacion, EstadoOrganizacion, NumeracionTransaccion, Sucursal, TiendaVirtual, Bodega, CentroCosto, Caja, CuentaBancaria
 from .planes import Plan
 from .roles import Rol
+from .permissions import Permission
 
 # No hay que hacer nada más aquí; con esto, Base.metadata incluye todos tus modelos.

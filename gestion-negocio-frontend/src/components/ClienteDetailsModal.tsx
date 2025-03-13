@@ -1,29 +1,29 @@
+// src/components/ClienteDetailsModal.tsx
 import React from "react";
 import Modal from "react-modal";
-import { Sucursal } from "./sucursalesTypes";
+import { Cliente } from "../pages/Clientes/clientesTypes"; 
+// ^ Ajusta la ruta si tu types de Cliente están en otro lugar
 
 Modal.setAppElement("#root");
 
-interface SucursalDetailsModalProps {
+interface ClienteDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  sucursal: Sucursal | null;
-  onEdit?: (id: number) => void; // Por si deseas botón "Editar"
+  cliente: Cliente | null;     // el cliente a visualizar
+  onEdit: (id: number) => void; // callback para abrir edición
 }
 
-const SucursalDetailsModal: React.FC<SucursalDetailsModalProps> = ({
+const ClienteDetailsModal: React.FC<ClienteDetailsModalProps> = ({
   isOpen,
   onClose,
-  sucursal,
-  onEdit,
+  cliente,
+  onEdit
 }) => {
-  if (!isOpen || !sucursal) return null;
+  // Si el modal está cerrado o no hay cliente, no renderizamos nada
+  if (!isOpen || !cliente) return null;
 
-  // Podrías mostrar "N/A" en caso de null/undefined
-  const deptoName = sucursal.departamento?.nombre || "N/A";
-  const cityName = sucursal.ciudad?.nombre || "N/A";
-  const pais = sucursal.pais || "N/A";
-  const telefonos = sucursal.telefonos || "N/A";
+  // Puedes usar console.log para ver qué llega
+  console.log("Detalles del Cliente:", cliente);
 
   return (
     <Modal
@@ -31,9 +31,7 @@ const SucursalDetailsModal: React.FC<SucursalDetailsModalProps> = ({
       onRequestClose={onClose}
       className="modal-content relative bg-white p-6 rounded-lg shadow-lg max-h-[80vh] overflow-y-auto w-full max-w-xl"
       overlayClassName="modal"
-      contentLabel="Detalles de la Sucursal"
-      shouldCloseOnOverlayClick={false}
-      shouldCloseOnEsc={false}
+      contentLabel="Detalles del Cliente"
     >
       {/* Botón X para cerrar */}
       <button
@@ -43,63 +41,79 @@ const SucursalDetailsModal: React.FC<SucursalDetailsModalProps> = ({
         ✕
       </button>
 
-      <h2 className="text-xl font-bold mb-4 text-center">Detalles de la Sucursal</h2>
+      <h2 className="text-xl font-bold mb-4 text-center">
+        Detalles del Cliente
+      </h2>
 
-      {/* Estructura en grid, 2 columnas en pantallas >=640px */}
+      {/* Grid responsiva */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <p>
-          <strong>ID:</strong> {sucursal.id}
+          <strong>ID:</strong> {cliente.id}
         </p>
         <p>
-          <strong>Nombre:</strong> {sucursal.nombre}
+          <strong>Nombre:</strong> {cliente.nombre_razon_social}
         </p>
         <p>
-          <strong>País:</strong> {pais}
+          <strong>Número Documento:</strong> {cliente.numero_documento}
         </p>
         <p>
-          <strong>Departamento:</strong> {deptoName}
+          <strong>Tipo Documento:</strong>{" "}
+          {cliente.tipo_documento?.abreviatura || "N/A"}
+        </p>
+
+        <p>
+          <strong>Teléfono1:</strong> {cliente.telefono1 || "N/A"}
         </p>
         <p>
-          <strong>Ciudad:</strong> {cityName}
+          <strong>Teléfono2:</strong> {cliente.telefono2 || "N/A"}
         </p>
         <p>
-          <strong>Dirección:</strong> {sucursal.direccion || "N/A"}
+          <strong>Celular:</strong> {cliente.celular || "N/A"}
         </p>
         <p>
-          <strong>Teléfonos:</strong> {telefonos}
+          <strong>WhatsApp:</strong> {cliente.whatsapp || "N/A"}
+        </p>
+
+        <p>
+          <strong>Departamento:</strong>{" "}
+          {cliente.departamento?.nombre || "N/A"}
         </p>
         <p>
-          <strong>Prefijo:</strong>{" "}
-          {sucursal.prefijo_transacciones || "N/A"}
+          <strong>Ciudad:</strong> {cliente.ciudad?.nombre || "N/A"}
+        </p>
+
+        <p>
+          <strong>Dirección:</strong> {cliente.direccion || "N/A"}
         </p>
         <p>
-          <strong>Principal:</strong>{" "}
-          {sucursal.sucursal_principal ? "Sí" : "No"}
+          <strong>Email:</strong> {cliente.email || "N/A"}
         </p>
+
+        {/* Ejemplo si manejas un campo cxc */}
         <p>
-          <strong>Activa:</strong> {sucursal.activa ? "Sí" : "No"}
+          <strong>CXC:</strong>{" "}
+          {cliente.cxc !== undefined ? cliente.cxc : "N/A"}
         </p>
-        {/* Agrega más campos si tu backend/sucursal los provee */}
+
+        {/* Agrega más campos si tu esquema lo requiere */}
       </div>
 
       <div className="flex justify-end gap-3 mt-4">
         <button onClick={onClose} className="btn-secondary">
           Cerrar
         </button>
-        {onEdit && (
-          <button
-            onClick={() => {
-              onClose();
-              onEdit(sucursal.id);
-            }}
-            className="btn-primary bg-blue-600"
-          >
-            Editar
-          </button>
-        )}
+        <button
+          onClick={() => {
+            onClose();
+            onEdit(cliente.id);
+          }}
+          className="btn-primary bg-blue-600"
+        >
+          Editar
+        </button>
       </div>
     </Modal>
   );
 };
 
-export default SucursalDetailsModal;
+export default ClienteDetailsModal;

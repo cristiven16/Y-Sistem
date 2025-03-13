@@ -1,3 +1,5 @@
+// src/pages/Sucursales/SucursalDetailsModal.tsx
+
 import React from "react";
 import Modal from "react-modal";
 import { Sucursal } from "./sucursalesTypes";
@@ -7,16 +9,18 @@ Modal.setAppElement("#root");
 interface SucursalDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  sucursal: Sucursal | null;
+  sucursal: Sucursal | undefined;
+  onEdit: (id: number) => void; // <-- nueva prop para el botón de Editar
 }
 
 const SucursalDetailsModal: React.FC<SucursalDetailsModalProps> = ({
   isOpen,
   onClose,
   sucursal,
+  onEdit,
 }) => {
   // Si no está abierto o no hay sucursal, no renderices nada
-  if (!isOpen || !sucursal) return null;
+  if (!isOpen || !sucursal) return undefined;
 
   return (
     <Modal
@@ -30,19 +34,53 @@ const SucursalDetailsModal: React.FC<SucursalDetailsModalProps> = ({
     >
       <h2 className="text-xl font-bold mb-4">Detalles de la Sucursal</h2>
       <div className="space-y-2">
-        <p><strong>ID:</strong> {sucursal.id}</p>
-        <p><strong>Nombre:</strong> {sucursal.nombre}</p>
-        <p><strong>País:</strong> {sucursal.pais || "N/A"}</p>
-        <p><strong>Departamento:</strong> {sucursal.departamento?.nombre || "N/A"}</p>
-        <p><strong>Ciudad:</strong> {sucursal.ciudad?.nombre || "N/A"}</p>
-        <p><strong>Dirección:</strong> {sucursal.direccion}</p>
-        <p><strong>Teléfonos:</strong> {sucursal.telefonos || "N/A"}</p>
-        <p><strong>Prefijo:</strong> {sucursal.prefijo_transacciones || "N/A"}</p>
-        <p><strong>Principal:</strong> {sucursal.sucursal_principal ? "Sí" : "No"}</p>
-        <p><strong>Activa:</strong> {sucursal.activa ? "Sí" : "No"}</p>
+        <p>
+          <strong>ID:</strong> {sucursal.id}
+        </p>
+        <p>
+          <strong>Nombre:</strong> {sucursal.nombre}
+        </p>
+        <p>
+          <strong>País:</strong> {sucursal.pais || "N/A"}
+        </p>
+        <p>
+          <strong>Departamento:</strong>{" "}
+          {sucursal.departamento?.nombre || "N/A"}
+        </p>
+        <p>
+          <strong>Ciudad:</strong> {sucursal.ciudad?.nombre || "N/A"}
+        </p>
+        <p>
+          <strong>Dirección:</strong> {sucursal.direccion}
+        </p>
+        <p>
+          <strong>Teléfonos:</strong> {sucursal.telefonos || "N/A"}
+        </p>
+        <p>
+          <strong>Prefijo:</strong> {sucursal.prefijo_transacciones || "N/A"}
+        </p>
+        <p>
+          <strong>Principal:</strong>{" "}
+          {sucursal.sucursal_principal ? "Sí" : "No"}
+        </p>
+        <p>
+          <strong>Activa:</strong> {sucursal.activa ? "Sí" : "No"}
+        </p>
       </div>
 
       <div className="flex justify-end mt-4">
+        {/* Botón Editar */}
+        <button
+          onClick={() => {
+            onClose();        // cierra el modal
+            onEdit(sucursal.id); // llama a la función para editar
+          }}
+          className="btn-primary mr-2"
+        >
+          Editar
+        </button>
+
+        {/* Botón Cerrar */}
         <button onClick={onClose} className="btn-secondary">
           Cerrar
         </button>

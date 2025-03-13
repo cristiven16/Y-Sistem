@@ -227,7 +227,7 @@ const EmpleadosPage: React.FC = () => {
       {/* Modal Editar Empleado */}
       <EmpleadoForm
         isOpen={isEditOpen}
-        empleado={selectedEmpleado}
+        empleado={selectedEmpleado ?? undefined}
         onClose={closeModals}
         onSuccess={() => {
           fetchEmpleados(page, search);
