@@ -3,13 +3,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Importar la sesión y el engine de la BD
 from database import engine, get_db
-
-# Importar tus modelos para que se registren en Base.metadata
 import models
 
-# Importar los routers
 from routes import (
     auth,
     users,
@@ -29,24 +25,22 @@ from routes import (
     permissions
 )
 
-# OJO: Se quita la llamada a Base.metadata.create_all(bind=engine)
-# porque alembic se encarga de manejar las migraciones y crear/modificar tablas.
-
-# Inicializar FastAPI
 app = FastAPI(title="API de Gestión Empresarial", version="1.0")
 
-
-# Configurar CORS (si se conecta con frontend)
+# Aquí limitamos CORS a y-sistem.web.app y y-sistem.firebaseapp.com
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ⚠ Cambiar en producción
+    allow_origins=[
+        "https://y-sistem.web.app",
+        "https://y-sistem.firebaseapp.com",
+        "http://127.0.0.1:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# Incluir Rutas
+# Incluir Routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(organizations.router)
@@ -64,7 +58,6 @@ app.include_router(ubicaciones.router)
 app.include_router(planes.router)
 app.include_router(permissions.router)
 
-# Ruta de Prueba
 @app.get("/")
 def home():
     return {"message": "API funcionando correctamente 🚀"}
