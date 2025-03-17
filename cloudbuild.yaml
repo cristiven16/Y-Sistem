@@ -6,8 +6,7 @@ steps:
       - build
       - '--no-cache'
       - '-t'
-      - >-
-        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
       - gestion_negocio
       - '-f'
       - gestion_negocio/Dockerfile
@@ -17,8 +16,7 @@ steps:
     id: Push
     args:
       - push
-      - >-
-        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
 
   # 3) Migrate con Cloud SQL Auth Proxy
   - name: 'python:3.11-slim'
@@ -49,7 +47,7 @@ steps:
         export DB_PORT="5432"
         export DB_USER="postgres"
         # DB_PASSWORD viene inyectado desde secrets => $DB_PASSWORD
-        export DB_NAME="postgres"  # Ajusta si tu base se llama distinto
+        export DB_NAME="postgres" # Ajusta si tu base se llama distinto
 
         # Ejecutar migraciones
         alembic upgrade head
@@ -72,8 +70,7 @@ steps:
       - '--quiet'
 
 images:
-  - >-
-    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+  - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
 
 options:
   substitutionOption: ALLOW_LOOSE
