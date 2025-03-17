@@ -15,14 +15,14 @@ db_password = os.getenv("DB_PASSWORD", "")
 db_name = os.getenv("DB_NAME", "mydb")
 
 # => Prints de debug:
-print("DEBUG => DB_HOST:", db_host)
-print("DEBUG => DB_USER:", db_user)
-print("DEBUG => DB_PASSWORD:", db_password)
-print("DEBUG => DB_NAME:", db_name)
+#print("DEBUG => DB_HOST:", db_host)
+#print("DEBUG => DB_USER:", db_user)
+#print("DEBUG => DB_PASSWORD:", db_password)
+#print("DEBUG => DB_NAME:", db_name)
 
 # 3) Revisar si existe DATABASE_URL
 database_url = os.getenv("DATABASE_URL")
-print("DEBUG => DATABASE_URL inicial:", database_url)
+#print("DEBUG => DATABASE_URL inicial:", database_url)
 
 if not database_url:
     if db_host and db_host.startswith("/cloudsql/"):
