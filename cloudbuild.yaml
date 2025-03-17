@@ -1,5 +1,5 @@
 steps:
-  # 1) Build la imagen Docker
+  # Paso 1: Build la imagen Docker
   - name: gcr.io/cloud-builders/docker
     id: Build
     args:
@@ -11,48 +11,14 @@ steps:
       - '-f'
       - gestion_negocio/Dockerfile
 
-  # 2) Push la imagen al Artifact Registry
+  # Paso 2: Push la imagen al Artifact Registry
   - name: gcr.io/cloud-builders/docker
     id: Push
     args:
       - push
       - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
 
-  # 3) Migrate con Cloud SQL Auth Proxy
-  - name: 'python:3.11-slim'
-    id: Migrate
-    entrypoint: bash
-    args:
-      - '-c'
-      - |
-        # Instalar utilidades
-        apt-get update && apt-get install -y wget
-
-        # Descargar Cloud SQL Auth Proxy
-        wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
-        chmod +x cloud_sql_proxy
-
-        # Iniciar el proxy en segundo plano => escucha en localhost:5432
-        ./cloud_sql_proxy -instances="y-sistem:us-central1:y-system-version-1=tcp:5432" &
-        sleep 5
-
-        # Instalar Alembic y driver de PostgreSQL
-        pip install alembic psycopg2-binary
-
-        # Movernos a la carpeta con alembic.ini
-        cd /workspace/gestion_negocio
-
-        # Variables para la conexión
-        export DB_HOST="localhost"
-        export DB_PORT="5432"
-        export DB_USER="postgres"
-        # DB_PASSWORD viene inyectado desde secrets => $DB_PASSWORD
-        export DB_NAME="postgres" # Ajusta si tu base se llama distinto
-
-        # Ejecutar migraciones
-        alembic upgrade head
-
-  # 4) Deploy a Cloud Run
+  # Paso 3: Deploy en Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: Deploy
     entrypoint: gcloud
@@ -70,7 +36,8 @@ steps:
       - '--quiet'
 
 images:
-  - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
+  - >-
+    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
 
 options:
   substitutionOption: ALLOW_LOOSE
@@ -85,8 +52,3 @@ substitutions:
   _AR_PROJECT_ID: y-sistem
   _PLATFORM: managed
   _SERVICE_NAME: y-system-erp
-
-# Aquí definimos el SECRET que inyectará $DB_PASSWORD en el paso 'Migrate'.
-secrets:
-  - secretEnv:
-      DB_PASSWORD: projects/y-sistem/secrets/DB_PASSWORD_y-system-version-1/versions/latest
