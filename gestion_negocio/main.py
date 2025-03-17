@@ -22,7 +22,9 @@ from routes import (
     catalogos,
     ubicaciones,
     planes,
-    permissions
+    permissions,
+    test_db
+    
 )
 
 app = FastAPI(title="API de Gestión Empresarial", version="1.0")
@@ -57,6 +59,7 @@ app.include_router(catalogos.router)
 app.include_router(ubicaciones.router)
 app.include_router(planes.router)
 app.include_router(permissions.router)
+app.include_router(test_db.router)
 
 @app.get("/")
 def home():

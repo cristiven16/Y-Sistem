@@ -11,3 +11,4 @@ from .organizations import router as organizations_router
 from .roles import router as roles_router
 from .users import router as users_router
 from .planes import router as planes_router
+from .test_db import router as test_db_router
