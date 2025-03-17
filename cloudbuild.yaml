@@ -48,7 +48,7 @@ steps:
         export DB_PORT="5432"
         export DB_USER="postgres"
         # Ya tenemos DB_PASSWORD desde secrets => $DB_PASSWORD
-        export DB_NAME="gestion_empresarial"
+        export DB_NAME="postgres"
 
         # 3.7) Ejecutar migraciones
         alembic upgrade head
