@@ -1,0 +1,93 @@
+steps:
+  # 1) Build la imagen Docker
+  - name: gcr.io/cloud-builders/docker
+    id: Build
+    args:
+      - build
+      - '--no-cache'
+      - '-t'
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
+      - gestion_negocio
+      - '-f'
+      - gestion_negocio/Dockerfile
+
+  # 2) Push la imagen a Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    id: Push
+    args:
+      - push
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
+
+  # 3) Migrate (usando Python + Auth Proxy para Cloud SQL)
+  - name: 'python:3.11-slim'
+    id: Migrate
+    entrypoint: bash
+    # Este paso leerá el secreto inyectado en DB_PASSWORD
+    args:
+      - '-c'
+      - |
+        # 3.1) Instalar utilidades
+        apt-get update && apt-get install -y wget
+
+        # 3.2) Descargar Cloud SQL Auth Proxy
+        wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+        chmod +x cloud_sql_proxy
+
+        # 3.3) Iniciar el proxy en segundo plano => escuchando en localhost:5432
+        ./cloud_sql_proxy -instances="y-sistem:us-central1:y-system-version-1=tcp:5432" &
+        sleep 5
+
+        # 3.4) Instalar Alembic y driver de PostgreSQL (psycopg2-binary o pg8000)
+        pip install alembic psycopg2-binary
+
+        # 3.5) Movernos a la carpeta con alembic.ini
+        cd /workspace/gestion_negocio
+
+        # 3.6) Definir las variables de entorno para conectar
+        export DB_HOST="localhost"
+        export DB_PORT="5432"
+        export DB_USER="postgres"
+        # Ya tenemos DB_PASSWORD desde secrets => $DB_PASSWORD
+        export DB_NAME="gestion_empresarial"
+
+        # 3.7) Ejecutar migraciones
+        alembic upgrade head
+
+  # 4) Deploy a Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: Deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - $_SERVICE_NAME
+      - '--platform=managed'
+      - >-
+        --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - >-
+        --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+
+images:
+  - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  REPO_NAME: y-sistem
+  _DEPLOY_REGION: us-central1
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _TRIGGER_ID: 3e0e9770-39f4-40e5-979c-f2e501bffd8b
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _AR_PROJECT_ID: y-sistem
+  _PLATFORM: managed
+  _SERVICE_NAME: y-system-erp
+
+# Declaramos el secreto para DB_PASSWORD, que se inyectará como variable $DB_PASSWORD
+secrets:
+  - secretEnv:
+      DB_PASSWORD: projects/y-sistem/secrets/DB_PASSWORD_y-system-version-1/versions/latest
