@@ -19,6 +19,8 @@ db_name = os.getenv("DB_NAME", "mydb")
 # 3. (Opcional) Revisa si existe DATABASE_URL para local o entornos que lo usen
 database_url = os.getenv("DATABASE_URL")
 
+print("DEBUG => final database_url:", database_url)
+
 if not database_url:
     # No hay DATABASE_URL, así que construiremos la URL manualmente según db_host
     if db_host and db_host.startswith("/cloudsql/"):
