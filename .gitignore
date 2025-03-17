@@ -1,2 +1,3 @@
 src/**/*.test.tsx
 src/**/*.test.ts
+gestion_negocio/.env
