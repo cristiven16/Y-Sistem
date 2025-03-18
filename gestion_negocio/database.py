@@ -10,16 +10,15 @@ load_dotenv()
 db_user = os.getenv("DB_USER", "postgres")  # Valor predeterminado para desarrollo
 db_password = os.getenv("DB_PASSWORD", "")   # Valor predeterminado para desarrollo
 db_name = os.getenv("DB_NAME", "mydb")      # Valor predeterminado para desarrollo
-
+db_port = os.getenv("DB_PORT", "5432")  #Para local, o usar directamente 5432
 #  MUY IMPORTANTE: Usa CLOUD_SQL_CONNECTION_NAME para Cloud Run.
 cloud_sql_connection_name = os.getenv("CLOUD_SQL_CONNECTION_NAME")
 
 # Prints de debug (¡déjalos mientras solucionas problemas!)
 print("DEBUG => DB_USER:", db_user)
-print("DEBUG => DB_PASSWORD:", db_password)  # Esto NO debería mostrarse en producción
+print("DEBUG => DB_PASSWORD:", db_password)  # Esto NO debería mostrarse en producción, es solo para debug
 print("DEBUG => DB_NAME:", db_name)
-print("DEBUG => CLOUD_SQL_CONNECTION_NAME:", cloud_sql_connection_name)
-
+print("DEBUG => CLOUD_SQL_CONNECTION_NAME:", cloud_sql_connection_name) # Muy importante este print
 
 # 3) Construir la URL de la base de datos. Prioriza CLOUD_SQL_CONNECTION_NAME.
 if cloud_sql_connection_name:
@@ -29,12 +28,17 @@ if cloud_sql_connection_name:
 
 else:
     # Conexión local (usa TCP) - Usa SIEMPRE el puerto 5432 si estás usando el proxy.
-    db_host = os.getenv("DB_HOST", "localhost")  # Valor predeterminado para desarrollo
+     # Usa el valor por defecto de 'localhost' si no se especifica DB_HOST
+    db_host = os.getenv("DB_HOST", "localhost")
+     # Usa SIEMPRE 5432 para el proxy.  Si corres Postgres directamente en local,
+     # asegúrate de que esté en 5432, o usa una variable de entorno *diferente* para
+     # ese caso, que no se llame DB_PORT.
     database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:5432/{db_name}"
 
-print("DEBUG => final database_url:", database_url) # Debug
 
-if not database_url: #Ya no es estrictamente necesario, pero está bien dejarlo.
+print("DEBUG => final database_url:", database_url)  # fundamental este print
+
+if not database_url:  # Ya no es estrictamente necesario, pero es buena práctica
     raise ValueError("No se pudo determinar la URL de la base de datos.")
 
 # 4) Crear el motor de SQLAlchemy
