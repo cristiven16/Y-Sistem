@@ -1,62 +1,56 @@
-# gestion_negocio/database.py
-
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# 1) Cargar variables de entorno en local
-load_dotenv()  # Esto solo hará efecto en entorno local si existe .env
+# 1) Cargar variables de entorno en local (SOLO para desarrollo)
+load_dotenv()
 
-# 2) Leer valores (host, user, pass, db, port)
-db_host = os.getenv("DB_HOST")
-db_user = os.getenv("DB_USER", "postgres")
-db_password = os.getenv("DB_PASSWORD", "")
-db_name = os.getenv("DB_NAME", "mydb")
-db_port = os.getenv("DB_PORT", "5432")
+# 2) Leer variables de entorno.  Usa SIEMPRE variables de entorno, NUNCA valores hardcodeados en producción.
+db_user = os.getenv("DB_USER", "postgres")  # Valor predeterminado para desarrollo
+db_password = os.getenv("DB_PASSWORD", "")   # Valor predeterminado para desarrollo
+db_name = os.getenv("DB_NAME", "mydb")      # Valor predeterminado para desarrollo
+db_port = os.getenv("DB_PORT", "5432")       # Valor predeterminado para desarrollo
 
-# => Prints de debug (para asegurarte de que todo se está leyendo correctamente)
-print("DEBUG => DB_HOST:", db_host)
+#  MUY IMPORTANTE: Usa CLOUD_SQL_CONNECTION_NAME para Cloud Run.
+cloud_sql_connection_name = os.getenv("CLOUD_SQL_CONNECTION_NAME")
+
+# Prints de debug (¡déjalos mientras solucionas problemas!)
 print("DEBUG => DB_USER:", db_user)
-print("DEBUG => DB_PASSWORD:", db_password)
+print("DEBUG => DB_PASSWORD:", db_password)  # Esto NO debería mostrarse en producción
 print("DEBUG => DB_NAME:", db_name)
- 
-# 3) Revisar si existe DATABASE_URL ya definida en el entorno
-database_url = os.getenv("DATABASE_URL")
-#print("DEBUG => DATABASE_URL inicial:", database_url)
+print("DEBUG => CLOUD_SQL_CONNECTION_NAME:", cloud_sql_connection_name)
+
+# 3) Construir la URL de la base de datos
+if cloud_sql_connection_name:
+    # Conexión a Cloud SQL desde Cloud Run (usa el socket Unix)
+    db_host = f"/cloudsql/{cloud_sql_connection_name}"
+    database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}/{db_name}"
+
+else:
+    # Conexión local (usa TCP)
+    db_host = os.getenv("DB_HOST", "localhost")  # Valor predeterminado para desarrollo
+
+    # IMPORTANTE:  Si usas el Cloud SQL Auth Proxy, el puerto SIEMPRE será 5432 (por defecto).
+    # No uses DB_PORT para el proxy.
+    database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:5432/{db_name}"
+
+
+print("DEBUG => final database_url:", database_url) # Debug
 
 if not database_url:
-    # Si no hay DATABASE_URL definida, construimos una según el entorno
-    if db_host and db_host.startswith("/cloudsql/"):
-        # Conexión vía socket (por ejemplo, en Cloud Run + Cloud SQL)
-        # host=/cloudsql/<PROJECT>:<REGION>:<INSTANCE>/.s.PGSQL.5432
-        database_url = (
-            f"postgresql+psycopg2://{db_user}:{db_password}@/{db_name}"
-            f"?host={db_host}"
-        )
-    else:
-        # Conexión TCP normal (por IP/hostname)
-        database_url = (
-            f"postgresql+psycopg2://{db_user}:{db_password}@"
-            f"{db_host or 'localhost'}:{db_port}/{db_name}"
-        )
+    raise ValueError("No se pudo determinar la URL de la base de datos.")
 
-print("DEBUG => final database_url:", database_url)
-
-if not database_url:
-    raise ValueError("No se pudo determinar la URL de la base de datos (database_url es None).")
-
-# 4) Crear el engine con la URL resultante
+# 4) Crear el motor de SQLAlchemy
 engine = create_engine(database_url)
 
-# 5) Definir la sesión
+# 5) Crear la sesión
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 6) Dependencia para obtener la sesión en tus endpoints de FastAPI
+# 6) Dependencia para obtener la sesión (para FastAPI)
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
- 
