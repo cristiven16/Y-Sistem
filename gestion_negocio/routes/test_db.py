@@ -1,16 +1,16 @@
-# gestion_negocio/routes/test_db.py
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from database import get_db  # Asegúrate de que database.py tiene el código correcto
 
 router = APIRouter()
 
 @router.get("/test-db")
-def test_db(db: Session = Depends(get_db)):
-    """
-    Este endpoint ejecuta un SELECT 1 en la base de datos
-    para comprobar la conexión.
-    """
-    result = db.execute(text("SELECT 1")).fetchone()
-    return {"db_test": result[0]}
+async def test_db(db: AsyncSession = Depends(get_db)):
+    try:
+        # USA AWAIT con las operaciones de la sesión
+        result = await db.execute(text("SELECT 1"))
+        scalar_result = result.scalar()
+        return {"message": f"Database connection successful! Result: {scalar_result}"}
+    except Exception as e:
+        return {"message": f"Database connection failed: {e}"}
