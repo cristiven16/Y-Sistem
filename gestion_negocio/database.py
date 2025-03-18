@@ -20,7 +20,7 @@ print("DEBUG => DB_HOST:", db_host)
 print("DEBUG => DB_USER:", db_user)
 print("DEBUG => DB_PASSWORD:", db_password)
 print("DEBUG => DB_NAME:", db_name)
-
+ 
 # 3) Revisar si existe DATABASE_URL ya definida en el entorno
 database_url = os.getenv("DATABASE_URL")
 #print("DEBUG => DATABASE_URL inicial:", database_url)
