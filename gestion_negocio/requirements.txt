@@ -1,5 +1,5 @@
 alembic==1.14.1  # Mantén la versión que ya tienes si te funciona bien.
-fastapi>=1.0.0   # Permite cualquier versión 1.x.x o superior
+fastapi  # Permite cualquier versión 1.x.x o superior
 pg8000==1.31.2
 SQLAlchemy>=2.0    # Permite cualquier versión 2.x o superior
 gunicorn>=23   # Versión mas reciente (o la última estable).
