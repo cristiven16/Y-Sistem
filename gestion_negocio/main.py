@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, get_db
 import models
-
+ 
 from routes import (
     auth,
     users,
