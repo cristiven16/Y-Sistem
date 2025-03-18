@@ -1,52 +1,56 @@
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text  # Importa text explícitamente
 from dotenv import load_dotenv
 
-# Carga las variables de entorno desde .env *SOLO* en el entorno local.
+# Carga variables de entorno locales desde .env (solo en desarrollo local)
 if os.getenv("GOOGLE_CLOUD_PROJECT") is None:
     load_dotenv()
 
-# Cloud SQL connection name (automáticamente establecido por Cloud Run en la pestaña "Conexiones").
+# Recupera la variable que inyecta Cloud Run al habilitar Conexiones de Cloud SQL
 cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
 
-# Construct the database URL based on the environment.
+# Parámetros que SÍ debes configurar manualmente
+db_user = os.getenv("DB_USER")       # Debes crearla en "Variables y secretos"
+db_password = os.getenv("DB_PASSWORD")
+db_name = os.getenv("DB_NAME")
+
 if cloud_sql_connection_name:
-    # En Cloud Run, usa el socket Unix y asyncpg.
-    db_host = f"/cloudsql/{cloud_sql_connection_name}"
-    # Usa la URL SIMPLIFICADA para Cloud Run + Cloud SQL Proxy.
-    database_url = f"postgresql+asyncpg://:@{db_host}"  # <-- URL SIMPLIFICADA
-    print("DEBUG => Cloud Run database_url:", database_url)
+    # Estás en Cloud Run. Usar socket Unix en /cloudsql/<INSTANCE>.
+    # Ejemplo: "postgresql+asyncpg://usuario:password@/basededatos?host=/cloudsql/proyecto:region:instancia"
+    if not (db_user and db_password and db_name):
+        raise ValueError("Faltan DB_USER, DB_PASSWORD o DB_NAME en las variables de entorno de Cloud Run.")
+    database_url = (
+        f"postgresql+asyncpg://{db_user}:{db_password}"
+        f"@/{db_name}?host=/cloudsql/{cloud_sql_connection_name}"
+    )
+    print("DEBUG => Conexión en Cloud Run usando Unix socket:", database_url)
 
 else:
-    # En entorno LOCAL, usa .env.
-    db_user = os.getenv("DB_USER", "postgres")  # Valor por defecto para desarrollo local.
-    db_password = os.getenv("DB_PASSWORD", "")    # ¡Usa una contraseña REAL, incluso localmente!
-    db_name = os.getenv("DB_NAME", "postgres")
-    db_host = os.getenv("DB_HOST", "localhost")  # O la IP si tu DB no está en localhost.
-    db_port = os.getenv("DB_PORT", "5432")       # Puerto por defecto de PostgreSQL.
+    # Modo local.
+    # Aquí sí puedes usar DB_HOST, DB_PORT si lo deseas.
+    # O asumes localhost:5432 con el usuario y DB que quieras.
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "5432")
+    print("DEBUG => Conexión local a PostgreSQL en", db_host, ":", db_port)
 
-    # Es importante usar asyncpg, incluso en local, si la app es asíncrona.
-    database_url = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-    print("DEBUG => Local database_url:", database_url)
+    database_url = (
+        f"postgresql+asyncpg://{db_user}:{db_password}"
+        f"@{db_host}:{db_port}/{db_name}"
+    )
+    print("DEBUG => Conexión local database_url:", database_url)
 
-# Validación: Aseguramos que CLOUD_SQL_CONNECTION_NAME esté presente en Cloud Run.
-if not cloud_sql_connection_name and os.getenv("GOOGLE_CLOUD_PROJECT") is not None:
-    raise ValueError("CLOUD_SQL_CONNECTION_NAME is not set.  Configure Cloud SQL connection in Cloud Run.")
-
-
-# Create the SQLAlchemy engine (ASÍNCRONO)
+# Crea el engine asíncrono
 engine = create_async_engine(database_url)
 
-# Create a session factory (ASÍNCRONA)
-AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+# Crea la factoría de sesiones asíncronas
+AsyncSessionLocal = sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    class_=AsyncSession
+)
 
-
-# Dependency to get a database session (for FastAPI) (ASÍNCRONA)
+# Dependencia para FastAPI (o tu framework) que proporciona la sesión
 async def get_db():
-    db = AsyncSessionLocal()
-    try:
+    async with AsyncSessionLocal() as db:
         yield db
-    finally:
-        await db.close()
