@@ -14,21 +14,20 @@ cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
 # Construct the database URL based on the environment.
 if cloud_sql_connection_name:
     # En Cloud Run: Usa pg8000 y el socket Unix.
-    # La URL simplificada NO necesita usuario, contraseña ni nombre de base de datos.
     db_host = f"/cloudsql/{cloud_sql_connection_name}"
     database_url = f"postgresql+pg8000://:@{db_host}"  # <- URL SIMPLIFICADA
     print("DEBUG => Cloud Run database_url:", database_url)
 
 else:
-    # En entorno LOCAL: Usa .env y la configuración local (con pg8000).
+    # En entorno LOCAL: Usa .env y la configuración local (con pg8000 o psycopg2).
     db_user = os.getenv("DB_USER", "postgres")  # Valor por defecto para desarrollo local.
-    db_password = os.getenv("DB_PASSWORD", "")  # ¡Usa una contraseña REAL, incluso localmente!
-    db_name = os.getenv("DB_NAME", "postgres")    # Valor por defecto
+    db_password = os.getenv("DB_PASSWORD", "")    # ¡Usa una contraseña real, incluso localmente!
+    db_name = os.getenv("DB_NAME", "postgres")
     db_host = os.getenv("DB_HOST", "localhost")  # O la IP si tu DB no está en localhost.
     db_port = os.getenv("DB_PORT", "5432")       # Puerto por defecto de PostgreSQL.
-
-    # Usamos pg8000 también localmente para mayor consistencia.
-    database_url = f"postgresql+pg8000://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    # Elige el driver para desarrollo local (pg8000 recomendado):
+    # database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}" # Para psycopg2
+    database_url = f"postgresql+pg8000://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"  # Para pg8000
     print("DEBUG => Local database_url:", database_url)
 
 # Validación: Aseguramos que CLOUD_SQL_CONNECTION_NAME esté presente en Cloud Run.
