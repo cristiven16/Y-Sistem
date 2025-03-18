@@ -32,7 +32,7 @@ if not database_url:
         # host=/cloudsql/<PROJECT>:<REGION>:<INSTANCE>/.s.PGSQL.5432
         database_url = (
             f"postgresql+psycopg2://{db_user}:{db_password}@/{db_name}"
-            f"?host={db_host}/.s.PGSQL.5432"
+            f"?host={db_host}"
         )
     else:
         # Conexión TCP normal (por IP/hostname)
