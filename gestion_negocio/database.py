@@ -28,11 +28,8 @@ if cloud_sql_connection_name:
 
 else:
     # Conexión local (usa TCP) - Usa SIEMPRE el puerto 5432 si estás usando el proxy.
-     # Usa el valor por defecto de 'localhost' si no se especifica DB_HOST
-    db_host = os.getenv("DB_HOST", "localhost")
-     # Usa SIEMPRE 5432 para el proxy.  Si corres Postgres directamente en local,
-     # asegúrate de que esté en 5432, o usa una variable de entorno *diferente* para
-     # ese caso, que no se llame DB_PORT.
+    db_host = os.getenv("DB_HOST", "localhost")  # Valor predeterminado para desarrollo
+    # Use port 5432 for Cloud SQL Auth Proxy.
     database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:5432/{db_name}"
 
 
