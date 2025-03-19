@@ -43,6 +43,7 @@ steps:
       - '--set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-db/.s.PGSQL.5432/ysistemdb'
       - '--allow-unauthenticated'
     id: Deploy
+    entrypoint: gcloud # <-- Agregar esto
 
 options:
   logging: CLOUD_LOGGING_ONLY
