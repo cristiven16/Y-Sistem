@@ -13,8 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
 RUN adduser --disabled-password --gecos "" fastapiuser
 USER fastapiuser
 
+RUN pip install alembic
+RUN alembic --help
+
 COPY . .
- 
+
 EXPOSE 8080
 
 CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080"]

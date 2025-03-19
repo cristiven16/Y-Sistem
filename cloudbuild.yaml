@@ -1,54 +1,48 @@
 steps:
-  # Paso 1: Build la imagen Docker
-  - name: gcr.io/cloud-builders/docker
+  - name: 'gcr.io/cloud-builders/docker'
     id: Build
     args:
-      - build
-      - '--no-cache'
+      - 'build'
       - '-t'
-      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
-      - gestion_negocio
-      - '-f'
-      - gestion_negocio/Dockerfile
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
+      - './gestion_negocio'
 
-  # Paso 2: Push la imagen al Artifact Registry
-  - name: gcr.io/cloud-builders/docker
+  - name: 'gcr.io/cloud-builders/docker'
     id: Push
     args:
-      - push
-      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
 
-  # Paso 3: Deploy en Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: Deploy
-    entrypoint: gcloud
+  - name: 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
+    id: Migrate
+    entrypoint: bash
     args:
-      - run
-      - services
-      - update
-      - $_SERVICE_NAME
-      - '--platform=managed'
-      - >-
-        --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-      - >-
-        --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
-      - '--region=$_DEPLOY_REGION'
-      - '--quiet'
+      - '-c'
+      - |
+        echo "Current working directory: $(pwd)"
+        echo "Files in /app:"
+        ls -la /app
+        echo "Trying to run alembic:"
+        alembic -c alembic.ini upgrade head || true
+        echo "Exit code: $?"
 
-images:
-  - >-
-    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'y-system-erp'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--service-account'
+      - 'compute@developer.gserviceaccount.com'
+      - '--port=8080'
+      - '--vpc-connector=projects/y-sistem/locations/us-central1/connectors/conector-erp'
+      - '--add-cloudsql-instances=y-sistem:us-central1:y-system-db'
+      - '--set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-db/.s.PGSQL.5432/ysistemdb'
+      - '--allow-unauthenticated'
+    id: Deploy
 
 options:
-  substitutionOption: ALLOW_LOOSE
   logging: CLOUD_LOGGING_ONLY
-
-substitutions:
-  REPO_NAME: y-sistem
-  _DEPLOY_REGION: us-central1
-  _AR_HOSTNAME: us-central1-docker.pkg.dev
-  _TRIGGER_ID: 3e0e9770-39f4-40e5-979c-f2e501bffd8b
-  _AR_REPOSITORY: cloud-run-source-deploy
-  _AR_PROJECT_ID: y-sistem
-  _PLATFORM: managed
-  _SERVICE_NAME: y-system-erp
