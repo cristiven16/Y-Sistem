@@ -7,23 +7,25 @@ steps:
         apt-get update && apt-get install -y wget
         wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
         chmod +x cloud_sql_proxy
-        ./cloud_sql_proxy -instances="PROJECT:REGION:INSTANCE=tcp:5432" &  # Reemplaza con tus valores
+        ./cloud_sql_proxy -instances="y-sistem:us-central1:y-system-version-1=tcp:5432" &
         sleep 5
 
         pip install alembic pg8000
-        cd gestion_negocio
+        cd gestion_negocio  # Asegúrate de que este directorio exista. Usa un Dockerfile si es necesario.
 
-        # Las variables de entorno 'normales' se definen aquí
-        export CLOUD_SQL_CONNECTION_NAME="PROJECT:REGION:INSTANCE"  # Reemplaza con tus valores
+        export CLOUD_SQL_CONNECTION_NAME="y-sistem:us-central1:y-system-version-1"
         export DB_USER="postgres"
-        # DB_PASSWORD se define AQUI, pero su VALOR viene del secreto
         export DB_NAME="postgres"
         alembic upgrade head
-    #  *** AQUI es donde vinculas el secreto a la variable de entorno ***
-    secretEnv: ['DB_PASSWORD']  
+    secretEnv: ['DB_PASSWORD']
 
-# *** AQUI declaras que vas a usar el secreto ***
 availableSecrets:
   secretManager:
-  - versionName: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/latest  # Reemplaza con tus valores
-    env: 'DB_PASSWORD' # El nombre que usarás en secretEnv
+  - versionName: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/1  # Reemplaza PROJECT y la versión.
+    env: 'DB_PASSWORD'
+
+# serviceAccount:  <-- ¡NO INCLUYAS ESTA LÍNEA si usas la cuenta predeterminada!
+logsBucket: 'gs://y-sistem_cloudbuild'
+
+options:
+    logging: CLOUD_LOGGING_ONLY #Opcional, pero recomendado
