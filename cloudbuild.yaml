@@ -15,20 +15,15 @@ steps:
 
   - name: 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
     id: Migrate
-    entrypoint: bash
+    entrypoint: alembic
     args:
       - '-c'
-      - |
-        echo "Current working directory: $(pwd)"  # <-- Imprime directorio actual
-        echo "Files in /app:"                # <-- Mensaje descriptivo
-        ls -la /app                        # <-- Lista archivos en /app
-        echo "Files in /app/gestion_negocio:" # <-- NUEVO: Mensaje descriptivo
-        ls -la /app/gestion_negocio          # <-- NUEVO: Lista archivos en /app/gestion_negocio
-        echo "Trying to run alembic:"        # <-- Mensaje descriptivo
-        alembic -c alembic.ini upgrade head || true   # <-- Intenta ejecutar Alembic y CONTINÚA
-        echo "Exit code: $?"                # <-- Imprime el código de salida de Alembic
+      - 'alembic.ini'
+      - 'upgrade'
+      - 'head'
+
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud  # <-- Usamos gcloud como entrypoint (corrige error de Deploy)
+    entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
@@ -38,7 +33,7 @@ steps:
       - '--region'
       - 'us-central1'
       - '--service-account'
-      - '130051245707-compute@developer.gserviceaccount.com'  # <-- Usar el NÚMERO de proyecto
+      - '130051245707-compute@developer.gserviceaccount.com'
       - '--port=8080'
       - '--vpc-connector=projects/y-sistem/locations/us-central1/connectors/conector-erp'
       - '--add-cloudsql-instances=y-sistem:us-central1:y-system-db'
