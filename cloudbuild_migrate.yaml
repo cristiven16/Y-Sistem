@@ -21,6 +21,7 @@ steps:
         # ephemeral pipeline -> run migrations
         alembic upgrade head
 
+
 secrets:
-  - secretEnv:
-      DB_PASSWORD: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/latest
+- secretEnv:
+    DB_PASSWORD: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/latest
