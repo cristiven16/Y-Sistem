@@ -7,21 +7,23 @@ steps:
         apt-get update && apt-get install -y wget
         wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
         chmod +x cloud_sql_proxy
-        ./cloud_sql_proxy -instances="PROJECT:REGION:INSTANCE=tcp:5432" &
+        ./cloud_sql_proxy -instances="PROJECT:REGION:INSTANCE=tcp:5432" &  # Reemplaza con tus valores
         sleep 5
 
         pip install alembic pg8000
         cd gestion_negocio
 
-        export CLOUD_SQL_CONNECTION_NAME="PROJECT:REGION:INSTANCE"
+        # Las variables de entorno 'normales' se definen aquí
+        export CLOUD_SQL_CONNECTION_NAME="PROJECT:REGION:INSTANCE"  # Reemplaza con tus valores
         export DB_USER="postgres"
-        export DB_PASSWORD=$$DB_PASSWORD
+        # DB_PASSWORD se define AQUI, pero su VALOR viene del secreto
         export DB_NAME="postgres"
-        # DB_HOST=127.0.0.1, DB_PORT=5432 => si quieres forzar, o lo calculamos
-        # ephemeral pipeline -> run migrations
         alembic upgrade head
+    #  *** AQUI es donde vinculas el secreto a la variable de entorno ***
+    secretEnv: ['DB_PASSWORD']  
 
-
-secrets:
-- secretEnv:
-    DB_PASSWORD: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/latest
+# *** AQUI declaras que vas a usar el secreto ***
+availableSecrets:
+  secretManager:
+  - versionName: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/latest  # Reemplaza con tus valores
+    env: 'DB_PASSWORD' # El nombre que usarás en secretEnv
