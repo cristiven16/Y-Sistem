@@ -1,20 +1,26 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
+from datetime import datetime
+
 from database import get_db
 from schemas.clientes import (
     ClienteSchema,
     ClienteResponseSchema,
     PaginatedClientes,
+    ClienteUpdateSchema,
 )
-from schemas.clientes import ClienteUpdateSchema  # <-- nuevo import
 from models.clientes import Cliente
 from dependencies.auth import get_current_user
-from datetime import datetime
 from services.dv_calculator import calc_dv_if_nit
 
-router = APIRouter(prefix="/clientes", tags=["Clientes"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/clientes",
+    tags=["Clientes"],
+    dependencies=[Depends(get_current_user)]
+)
 
 def normalize_text(text: str) -> str:
     return (text.replace("á", "a")
@@ -24,27 +30,32 @@ def normalize_text(text: str) -> str:
                .replace("ú", "u"))
 
 @router.post("/", response_model=dict)
-def crear_cliente(
-    cliente: ClienteSchema, 
-    db: Session = Depends(get_db),
+async def crear_cliente(
+    cliente: ClienteSchema,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    # Normalizar y mayúsculas
+    """
+    Crea un nuevo cliente.
+    """
+    # Normalizar
     cliente.nombre_razon_social = cliente.nombre_razon_social.upper()
     cliente.numero_documento = normalize_text(cliente.numero_documento).strip()
 
-    # Verificar duplicado en la misma organizacion
-    existe = db.query(Cliente).filter(
+    # Verificar duplicado (misma organizacion)
+    stmt_duplicado = select(Cliente).where(
         Cliente.organizacion_id == cliente.organizacion_id,
         Cliente.numero_documento == cliente.numero_documento
-    ).first()
+    )
+    result = await db.execute(stmt_duplicado)
+    existe = result.scalars().first()
     if existe:
         raise HTTPException(
             status_code=400,
             detail="El número de identificación ya existe para esta organización."
         )
 
-    # Calcular DV si es NIT => se asume, por ejemplo, tipo_documento_id=2 => NIT
+    # Calcular dígito de verificación si es NIT
     dv_calculado = calc_dv_if_nit(cliente.tipo_documento_id, cliente.numero_documento)
 
     # Crear instancia
@@ -77,21 +88,21 @@ def crear_cliente(
         sucursal_id=cliente.sucursal_id,
         ruta_logistica_id=cliente.ruta_logistica_id,
         vendedor_id=cliente.vendedor_id,
-        observacion=cliente.observacion
+        observacion=cliente.observacion,
     )
     db.add(nuevo_cliente)
-    db.commit()
-    db.refresh(nuevo_cliente)
+    await db.commit()
+    await db.refresh(nuevo_cliente)
 
     return {
         "message": "Cliente creado con éxito",
         "id": nuevo_cliente.id,
-        "numero_documento": nuevo_cliente.numero_documento
+        "numero_documento": nuevo_cliente.numero_documento,
     }
 
 @router.get("/", response_model=PaginatedClientes)
-def obtener_clientes(
-    db: Session = Depends(get_db),
+async def obtener_clientes(
+    db: AsyncSession = Depends(get_db),
     search: Optional[str] = Query(None),
     page: int = 1,
     page_size: int = 10
@@ -99,25 +110,44 @@ def obtener_clientes(
     """
     Paginar clientes con filtrado por 'search' (sobre nombre_razon_social).
     """
-    query = db.query(Cliente).options(
-        joinedload(Cliente.departamento),
-        joinedload(Cliente.ciudad)
+    # Construimos la query base
+    # joinedload no es compatible directo con AsyncSession => 
+    # para fetch con relaciones, puedes usar select con `options(joinedload(...))`.
+    # Ejemplo rápido:
+    from sqlalchemy.orm import selectinload
+    
+    base_stmt = select(Cliente).options(
+        selectinload(Cliente.departamento),
+        selectinload(Cliente.ciudad)
     )
-
     if search:
         normalized_search = normalize_text(search).strip().lower()
         terms = normalized_search.split()
         for term in terms:
-            query = query.filter(func.lower(Cliente.nombre_razon_social).ilike(f"%{term}%"))
+            # .ilike => usar func.lower(Cliente.nombre_razon_social) 
+            # ejemplo: .where(func.lower(Cliente.nombre_razon_social).ilike(...))
+            base_stmt = base_stmt.where(
+                func.lower(Cliente.nombre_razon_social).ilike(f"%{term}%")
+            )
 
-    total_registros = query.count()
+    # Contar total de registros
+    # Nota: para contar en asíncrono, puedes usar count_rows = select(func.count(Cliente.id))
+    # pero dado que construimos un statement base con filters, debemos adaptarlo.
+    count_stmt = base_stmt.with_only_columns(func.count(Cliente.id))
+    total_result = await db.execute(count_stmt)
+    total_registros = total_result.scalar() or 0
+
+    # calcular total paginas
     total_paginas = max((total_registros + page_size - 1) // page_size, 1)
-
     if page > total_paginas:
         page = total_paginas
 
     offset = (page - 1) * page_size
-    clientes_db = query.offset(offset).limit(page_size).all()
+    # Agregar paginación
+    stmt_paginado = base_stmt.offset(offset).limit(page_size)
+
+    result_clientes = await db.execute(stmt_paginado)
+    clientes_db = result_clientes.scalars().all()
 
     data = [ClienteResponseSchema.from_orm(c) for c in clientes_db]
 
@@ -125,62 +155,64 @@ def obtener_clientes(
         "data": data,
         "page": page,
         "total_paginas": total_paginas,
-        "total_registros": total_registros
+        "total_registros": total_registros,
     }
 
 @router.get("/{cliente_id}", response_model=ClienteResponseSchema)
-def obtener_cliente(
-    cliente_id: int, 
-    db: Session = Depends(get_db),
+async def obtener_cliente(
+    cliente_id: int,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """
     Obtiene el cliente por su ID.
     """
-    cliente_db = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    stmt = select(Cliente).where(Cliente.id == cliente_id)
+    result = await db.execute(stmt)
+    cliente_db = result.scalars().first()
     if not cliente_db:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     return cliente_db
 
 @router.patch("/{cliente_id}", response_model=ClienteResponseSchema)
-def actualizar_parcial_cliente(
+async def actualizar_parcial_cliente(
     cliente_id: int,
     cliente_data: ClienteUpdateSchema,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """
-    Actualiza los campos que vengan en el JSON (partial update).
+    Actualiza campos específicos del cliente (partial update).
     """
-    cliente_db = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    # 1) Obtener el cliente
+    stmt = select(Cliente).where(Cliente.id == cliente_id)
+    result = await db.execute(stmt)
+    cliente_db = result.scalars().first()
     if not cliente_db:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    # Convertimos a dict y excluimos campos no enviados
+    # 2) Tomamos el dict de datos
     campos = cliente_data.dict(exclude_unset=True)
 
-    # Validar si cambia 'numero_documento' => checar duplicado
+    # Si cambiamos numero_documento => verificar duplicado
     if "numero_documento" in campos:
         doc_nuevo = normalize_text(campos["numero_documento"]).strip()
         if doc_nuevo != cliente_db.numero_documento:
-            # Checar unique (org, numero_documento)
-            existe = db.query(Cliente).filter(
-                Cliente.organizacion_id == (campos.get("organizacion_id") or cliente_db.organizacion_id),
+            # Checar duplicado
+            org_id = campos.get("organizacion_id", cliente_db.organizacion_id)
+            stmt_dup = select(Cliente).where(
+                Cliente.organizacion_id == org_id,
                 Cliente.numero_documento == doc_nuevo,
                 Cliente.id != cliente_db.id
-            ).first()
+            )
+            check_dup = await db.execute(stmt_dup)
+            existe = check_dup.scalars().first()
             if existe:
                 raise HTTPException(status_code=400, detail="Ya existe ese documento en la organización.")
-            # Reasignar doc normalizado
             campos["numero_documento"] = doc_nuevo
 
-    # Validar si 'organizacion_id' cambia
-    if "organizacion_id" in campos and campos["organizacion_id"] != cliente_db.organizacion_id:
-        # Se asume que lo permitimos. (Si no, raise error.)
-        pass
-
-    # Calcular DV si se cambió tipo_documento_id y numero_documento
+    # Calcular DV si cambia doc o tipo_doc
     if "tipo_documento_id" in campos or "numero_documento" in campos:
         tdoc = campos.get("tipo_documento_id", cliente_db.tipo_documento_id)
         ndoc = campos.get("numero_documento", cliente_db.numero_documento)
@@ -190,28 +222,30 @@ def actualizar_parcial_cliente(
 
     # Asignar el resto de campos
     for key, value in campos.items():
-        # Normalizar 'nombre_razon_social' si cambia
         if key == "nombre_razon_social" and value:
             value = normalize_text(value).upper()
         setattr(cliente_db, key, value)
 
-    db.commit()
-    db.refresh(cliente_db)
+    await db.commit()
+    await db.refresh(cliente_db)
     return cliente_db
 
 @router.delete("/{cliente_id}")
-def eliminar_cliente(
-    cliente_id: int, 
-    db: Session = Depends(get_db),
+async def eliminar_cliente(
+    cliente_id: int,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """
-    Elimina un cliente por ID.
+    Elimina un cliente por su ID.
     """
-    cliente_db = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    stmt = select(Cliente).where(Cliente.id == cliente_id)
+    result = await db.execute(stmt)
+    cliente_db = result.scalars().first()
+
     if not cliente_db:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    db.delete(cliente_db)
-    db.commit()
+    await db.delete(cliente_db)
+    await db.commit()
     return {"message": "Cliente eliminado correctamente"}

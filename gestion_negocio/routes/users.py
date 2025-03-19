@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+# gestion_negocio/routes/users.py
+
 from typing import Optional
-from sqlalchemy import or_
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_, func
+from sqlalchemy.orm import joinedload
 
 from database import get_db
 from schemas.user_schemas import (
@@ -14,60 +17,62 @@ from models.roles import Rol
 from models.organizaciones import Organizacion
 from dependencies.auth import get_current_user
 
-# Con este prefix, tus endpoints inician con /users
+
 router = APIRouter(prefix="/users", tags=["Users"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/", response_model=UserRead)
-def create_user(
+async def create_user(
     user_data: UserCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """
-    Crea un nuevo usuario (campos completos).
-    Reglas:
-      - superadmin => sin restricciones
-      - admin => no puede crear usuario con rol "superadmin"
-      - empleado => no puede crear usuarios
-    Valida email duplicado, rol_id y organizacion_id.
+    Crea un nuevo usuario.
+    - superadmin => sin restricciones
+    - admin => no puede crear user con rol superadmin
+    - empleado => no crea
     """
-    # 1) Reglas de acceso
     if current_user.tipo_usuario == TipoUsuario.empleado:
         raise HTTPException(403, "Un empleado no puede crear usuarios.")
 
-    # Validar si admin => no asignar rol 'superadmin'
+    # Validar si admin => no rol superadmin
     if current_user.tipo_usuario == TipoUsuario.admin and user_data.rol_id:
-        rol_obj = db.query(Rol).filter(Rol.id == user_data.rol_id).first()
+        stmt_rol = select(Rol).where(Rol.id == user_data.rol_id)
+        res_rol = await db.execute(stmt_rol)
+        rol_obj = res_rol.scalars().first()
         if rol_obj and rol_obj.nombre.lower() == "superadmin":
-            raise HTTPException(403, "Un admin no puede asignar rol 'superadmin' a otro usuario.")
+            raise HTTPException(403, "Un admin no puede asignar rol 'superadmin'.")
 
-    # 2) Validar email duplicado
-    existing = db.query(Usuario).filter(Usuario.email == user_data.email).first()
+    # Validar email duplicado
+    stmt_exist = select(Usuario).where(Usuario.email == user_data.email)
+    res_exist = await db.execute(stmt_exist)
+    existing = res_exist.scalars().first()
     if existing:
         raise HTTPException(400, "El email ya existe")
 
-    # 3) Validar rol_id
+    # Validar rol_id
     if user_data.rol_id is not None:
-        rol_obj = db.query(Rol).filter(Rol.id == user_data.rol_id).first()
-        if not rol_obj:
+        stmt_rol_check = select(Rol).where(Rol.id == user_data.rol_id)
+        res_rol_check = await db.execute(stmt_rol_check)
+        rol_obj_check = res_rol_check.scalars().first()
+        if not rol_obj_check:
             raise HTTPException(400, "El rol especificado no existe")
 
-    # 4) Validar organizacion_id
+    # Validar organizacion_id
     if user_data.organizacion_id is not None:
-        org = db.query(Organizacion).filter(Organizacion.id == user_data.organizacion_id).first()
+        stmt_org = select(Organizacion).where(Organizacion.id == user_data.organizacion_id)
+        res_org = await db.execute(stmt_org)
+        org = res_org.scalars().first()
         if not org:
             raise HTTPException(400, "La organización especificada no existe")
 
-        # admin no puede crear usuario en otra org
         if current_user.tipo_usuario == TipoUsuario.admin:
             if org.id != current_user.organizacion_id:
-                raise HTTPException(403, "Un admin no puede crear usuarios en otra organización.")
+                raise HTTPException(403, "Admin no puede crear usuarios en otra organización.")
 
-    # 5) Hashear la contraseña
     hashed_pass = get_password_hash(user_data.password)
 
-    # 6) Crear la instancia
     nuevo_usuario = Usuario(
         nombre=user_data.nombre,
         email=user_data.email,
@@ -77,38 +82,39 @@ def create_user(
         estado=EstadoUsuario.activo
     )
     db.add(nuevo_usuario)
-    db.commit()
-    db.refresh(nuevo_usuario)
+    await db.commit()
+    await db.refresh(nuevo_usuario)
 
-    # 7) Log
     log_event(db, current_user.id, "USER_CREATED", f"Creación de usuario {nuevo_usuario.email}")
     return nuevo_usuario
 
 
 @router.get("/me", response_model=UserRead)
-def get_me(
-    db: Session = Depends(get_db),
+async def get_me(
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """
-    Retorna los datos del usuario logueado (extraídos del token).
+    Retorna datos del usuario logueado (del token).
     """
     return current_user
 
 
 @router.get("/{user_id}", response_model=UserRead)
-def get_user(
+async def get_user(
     user_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """
     Obtiene un usuario por ID.
-    - superadmin => puede ver todos
-    - admin => solo usuarios de su organización
-    - empleado => no ve (o ajusta tu lógica)
+    - superadmin => ve todos
+    - admin => solo su org
+    - empleado => no
     """
-    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    stmt = select(Usuario).where(Usuario.id == user_id)
+    res = await db.execute(stmt)
+    usuario = res.scalars().first()
     if not usuario:
         raise HTTPException(404, "Usuario no encontrado")
 
@@ -123,20 +129,21 @@ def get_user(
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-def update_user_partial(
+async def update_user_partial(
     user_id: int,
     user_data: UserUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """
     Actualiza un usuario de manera parcial.
-    Reglas:
-      - superadmin => sin restricciones
-      - admin => no puede asignar rol 'superadmin', ni cambiar de org
-      - empleado => no actualiza
+    - superadmin => sin restricciones
+    - admin => no puede asignar superadmin, ni cambiar de org
+    - empleado => no
     """
-    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    stmt = select(Usuario).where(Usuario.id == user_id)
+    res = await db.execute(stmt)
+    usuario = res.scalars().first()
     if not usuario:
         raise HTTPException(404, "Usuario no encontrado")
 
@@ -144,7 +151,6 @@ def update_user_partial(
         raise HTTPException(403, "Un empleado no puede actualizar usuarios.")
 
     if current_user.tipo_usuario == TipoUsuario.admin:
-        # no puede editar user de otra org
         if usuario.organizacion_id != current_user.organizacion_id:
             raise HTTPException(403, "No puedes editar usuarios de otra organización.")
 
@@ -152,14 +158,18 @@ def update_user_partial(
 
     # email
     if "email" in fields and fields["email"] != usuario.email:
-        existing = db.query(Usuario).filter(Usuario.email == fields["email"]).first()
-        if existing:
+        stmt_dup = select(Usuario).where(Usuario.email == fields["email"])
+        res_dup = await db.execute(stmt_dup)
+        existing_email = res_dup.scalars().first()
+        if existing_email:
             raise HTTPException(400, "El nuevo email ya está registrado")
         usuario.email = fields["email"]
 
-    # rol_id => admin no puede asignar superadmin
+    # rol_id => admin no => superadmin
     if "rol_id" in fields and fields["rol_id"] is not None:
-        rol_obj = db.query(Rol).filter(Rol.id == fields["rol_id"]).first()
+        stmt_rol = select(Rol).where(Rol.id == fields["rol_id"])
+        res_rol = await db.execute(stmt_rol)
+        rol_obj = res_rol.scalars().first()
         if not rol_obj:
             raise HTTPException(400, "El rol especificado no existe")
 
@@ -168,9 +178,11 @@ def update_user_partial(
                 raise HTTPException(403, "Un admin no puede asignar superadmin.")
         usuario.rol_id = fields["rol_id"]
 
-    # organizacion_id => admin no puede reasignar otra org
+    # organizacion_id => admin no reasigna otra org
     if "organizacion_id" in fields and fields["organizacion_id"] is not None:
-        org = db.query(Organizacion).filter(Organizacion.id == fields["organizacion_id"]).first()
+        stmt_org = select(Organizacion).where(Organizacion.id == fields["organizacion_id"])
+        res_org = await db.execute(stmt_org)
+        org = res_org.scalars().first()
         if not org:
             raise HTTPException(400, "La organización especificada no existe")
 
@@ -186,26 +198,28 @@ def update_user_partial(
     if "estado" in fields:
         usuario.estado = fields["estado"]
 
-    db.commit()
-    db.refresh(usuario)
+    await db.commit()
+    await db.refresh(usuario)
 
     log_event(db, current_user.id, "USER_UPDATED", f"Usuario {usuario.email} actualizado")
     return usuario
 
 
 @router.delete("/{user_id}")
-def delete_user(
+async def delete_user(
     user_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """
     Elimina un usuario por ID.
-    - superadmin => sin restricciones
+    - superadmin => sin restric.
     - admin => solo su org
     - empleado => no
     """
-    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    stmt = select(Usuario).where(Usuario.id == user_id)
+    res = await db.execute(stmt)
+    usuario = res.scalars().first()
     if not usuario:
         raise HTTPException(404, "Usuario no encontrado")
 
@@ -216,52 +230,56 @@ def delete_user(
         if usuario.organizacion_id != current_user.organizacion_id:
             raise HTTPException(403, "No puedes eliminar un usuario de otra organización.")
 
-    db.delete(usuario)
-    db.commit()
+    await db.delete(usuario)
+    await db.commit()
 
     log_event(db, current_user.id, "USER_DELETED", f"Usuario {user_id} eliminado")
     return {"message": f"Usuario {user_id} eliminado con éxito"}
 
 
 @router.get("/", response_model=PaginatedUsers)
-def list_users(
-    db: Session = Depends(get_db),
+async def list_users(
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
     search: Optional[str] = None,
     page: int = 1,
     page_size: int = 10
 ):
     """
-    GET /users
     Lista paginada de usuarios con filtro en "nombre" o "email".
     - superadmin => ve todos
-    - admin => filtra por su org
+    - admin => filtra su org
     - empleado => no
     """
-    query = db.query(Usuario)
-
     if current_user.tipo_usuario == TipoUsuario.superadmin:
-        pass  # ve todos
+        stmt_base = select(Usuario)
     elif current_user.tipo_usuario == TipoUsuario.admin:
         if not current_user.organizacion_id:
             raise HTTPException(403, "No tienes organizacion asignada.")
-        query = query.filter(Usuario.organizacion_id == current_user.organizacion_id)
+        stmt_base = select(Usuario).where(Usuario.organizacion_id == current_user.organizacion_id)
     else:
-        # empleado => no
         raise HTTPException(403, "Un empleado no puede listar usuarios.")
 
     if search:
         search_like = f"%{search}%"
-        query = query.filter(or_(Usuario.nombre.ilike(search_like),
-                                 Usuario.email.ilike(search_like)))
+        stmt_base = stmt_base.where(
+            or_(
+                Usuario.nombre.ilike(search_like),
+                Usuario.email.ilike(search_like)
+            )
+        )
 
-    total_registros = query.count()
-    total_paginas = max((total_registros + page_size - 1)//page_size, 1)
+    count_stmt = stmt_base.with_only_columns(func.count(Usuario.id))
+    res_count = await db.execute(count_stmt)
+    total_registros = res_count.scalar() or 0
+    total_paginas = max((total_registros + page_size - 1) // page_size, 1)
     if page > total_paginas:
         page = total_paginas
+    offset = (page - 1) * page_size
 
-    offset = (page - 1)*page_size
-    users_db = query.offset(offset).limit(page_size).all()
+    stmt_paginado = stmt_base.offset(offset).limit(page_size)
+    res_users = await db.execute(stmt_paginado)
+    users_db = res_users.scalars().all()
 
     data = [UserRead.from_orm(u) for u in users_db]
     return {
@@ -273,17 +291,16 @@ def list_users(
 
 
 @router.get("/organizations/{org_id}/users", response_model=PaginatedUsers)
-def list_users_by_org(
+async def list_users_by_org(
     org_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
     search: Optional[str] = None,
     page: int = 1,
     page_size: int = 10
 ):
     """
-    GET /users/organizations/{org_id}/users
-    Retorna usuarios de la organización {org_id}, con search y paginación.
+    Retorna usuarios de la organización {org_id}.
     - superadmin => puede listar cualquier org
     - admin => solo su org
     - empleado => no
@@ -294,32 +311,41 @@ def list_users_by_org(
         if org_id != current_user.organizacion_id:
             raise HTTPException(403, "Un admin no puede listar usuarios de otra org.")
     else:
-        raise HTTPException(403, "Un empleado no puede listar usuarios de otras org.")
+        raise HTTPException(403, "Un empleado no puede listar usuarios.")
 
     # Verificar org existe
-    org = db.query(Organizacion).filter(Organizacion.id == org_id).first()
+    stmt_org = select(Organizacion).where(Organizacion.id == org_id)
+    res_org = await db.execute(stmt_org)
+    org = res_org.scalars().first()
     if not org:
         raise HTTPException(404, "Organización no encontrada")
 
-    query = db.query(Usuario).options(joinedload(Usuario.rol)) \
-                .filter(Usuario.organizacion_id == org_id)
+    stmt_base = (
+        select(Usuario)
+        .options(joinedload(Usuario.rol))
+        .where(Usuario.organizacion_id == org_id)
+    )
 
     if search:
         search_like = f"%{search}%"
-        query = query.filter(
+        stmt_base = stmt_base.where(
             or_(
                 Usuario.nombre.ilike(search_like),
                 Usuario.email.ilike(search_like)
             )
         )
 
-    total_registros = query.count()
+    count_stmt = stmt_base.with_only_columns(func.count(Usuario.id))
+    res_count = await db.execute(count_stmt)
+    total_registros = res_count.scalar() or 0
     total_paginas = max((total_registros + page_size - 1)//page_size, 1)
     if page > total_paginas:
         page = total_paginas
-
     offset = (page - 1)*page_size
-    usuarios_db = query.offset(offset).limit(page_size).all()
+
+    stmt_paginado = stmt_base.offset(offset).limit(page_size)
+    res_usuarios = await db.execute(stmt_paginado)
+    usuarios_db = res_usuarios.scalars().all()
 
     data = []
     for u in usuarios_db:

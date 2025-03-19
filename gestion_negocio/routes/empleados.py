@@ -2,13 +2,15 @@
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
+
 from database import get_db
 from models.empleados import Empleado
 from schemas.empleados import (
     EmpleadoCreateUpdateSchema,
-    EmpleadoPatchSchema,         # <-- El nuevo esquema de actualización parcial
+    EmpleadoPatchSchema,         # <-- esquema para patch
     EmpleadoResponseSchema,
     PaginatedEmpleados
 )
@@ -16,7 +18,10 @@ from dependencies.auth import get_current_user
 from services.dv_calculator import calc_dv_if_nit
 
 
-router = APIRouter(prefix="/empleados", tags=["Empleados"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/empleados",
+                   tags=["Empleados"],
+                   dependencies=[Depends(get_current_user)])
+
 
 def normalize_text(text: str) -> str:
     return (text.replace("á", "a")
@@ -25,19 +30,28 @@ def normalize_text(text: str) -> str:
                 .replace("ó", "o")
                 .replace("ú", "u"))
 
+
 @router.post("/", response_model=dict)
-def crear_empleado(empleado_in: EmpleadoCreateUpdateSchema, db: Session = Depends(get_db)):
+async def crear_empleado(
+    empleado_in: EmpleadoCreateUpdateSchema,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Crea un empleado con todos los campos obligatorios que define EmpleadoCreateUpdateSchema.
     """
     # 1) Verificar si (org_id, numero_documento) ya existe
-    duplicado = db.query(Empleado).filter(
-        Empleado.organizacion_id == empleado_in.organizacion_id,
-        Empleado.numero_documento == empleado_in.numero_documento
-    ).first()
+    stmt_duplicado = (
+        select(Empleado)
+        .where(
+            Empleado.organizacion_id == empleado_in.organizacion_id,
+            Empleado.numero_documento == empleado_in.numero_documento
+        )
+    )
+    result_duplicado = await db.execute(stmt_duplicado)
+    duplicado = result_duplicado.scalars().first()
     if duplicado:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Documento duplicado en la misma organización."
         )
 
@@ -45,8 +59,11 @@ def crear_empleado(empleado_in: EmpleadoCreateUpdateSchema, db: Session = Depend
     empleado_in.nombre_razon_social = empleado_in.nombre_razon_social.upper()
     empleado_in.numero_documento = normalize_text(empleado_in.numero_documento).strip()
 
-    # 3) Si deseas recalcular DV
-    dv_calc = calc_dv_if_nit(empleado_in.tipo_documento_id, empleado_in.numero_documento)
+    # 3) Recalcular DV
+    dv_calc = calc_dv_if_nit(
+        empleado_in.tipo_documento_id,
+        empleado_in.numero_documento
+    )
 
     # 4) Crear instancia
     nuevo = Empleado(
@@ -78,8 +95,8 @@ def crear_empleado(empleado_in: EmpleadoCreateUpdateSchema, db: Session = Depend
         observacion=empleado_in.observacion
     )
     db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
+    await db.commit()
+    await db.refresh(nuevo)
 
     return {
         "message": "Empleado creado con éxito",
@@ -89,8 +106,8 @@ def crear_empleado(empleado_in: EmpleadoCreateUpdateSchema, db: Session = Depend
 
 
 @router.get("/", response_model=PaginatedEmpleados)
-def obtener_empleados(
-    db: Session = Depends(get_db),
+async def obtener_empleados(
+    db: AsyncSession = Depends(get_db),
     search: Optional[str] = None,
     es_vendedor: Optional[bool] = None,
     page: int = 1,
@@ -99,29 +116,44 @@ def obtener_empleados(
     """
     Lista paginada de empleados, con filtro por 'search' y 'es_vendedor'.
     """
-    query = db.query(Empleado).options(
-        joinedload(Empleado.tipo_documento),
-        joinedload(Empleado.departamento),
-        joinedload(Empleado.ciudad)
-    )
-    if es_vendedor is not None:
-        query = query.filter(Empleado.es_vendedor == es_vendedor)
 
+    stmt_base = (
+        select(Empleado)
+        .options(
+            selectinload(Empleado.tipo_documento),
+            selectinload(Empleado.departamento),
+            selectinload(Empleado.ciudad),
+        )
+    )
+
+    # Filtro por es_vendedor
+    if es_vendedor is not None:
+        stmt_base = stmt_base.where(Empleado.es_vendedor == es_vendedor)
+
+    # Filtro por search
     if search:
         normalized = normalize_text(search).lower().strip()
         terms = normalized.split()
         for term in terms:
-            query = query.filter(
+            stmt_base = stmt_base.where(
                 func.lower(Empleado.nombre_razon_social).ilike(f"%{term}%")
             )
 
-    total_registros = query.count()
-    total_paginas = max((total_registros + page_size - 1)//page_size, 1)
+    # Contar total
+    count_stmt = stmt_base.with_only_columns(func.count(Empleado.id))
+    total_result = await db.execute(count_stmt)
+    total_registros = total_result.scalar() or 0
+
+    total_paginas = max((total_registros + page_size - 1) // page_size, 1)
     if page > total_paginas:
         page = total_paginas
-    offset = (page - 1)*page_size
 
-    empleados_db = query.offset(offset).limit(page_size).all()
+    offset = (page - 1) * page_size
+    stmt_paginado = stmt_base.offset(offset).limit(page_size)
+
+    result_empleados = await db.execute(stmt_paginado)
+    empleados_db = result_empleados.scalars().all()
+
     data = [EmpleadoResponseSchema.from_orm(e) for e in empleados_db]
 
     return {
@@ -131,39 +163,52 @@ def obtener_empleados(
         "total_registros": total_registros
     }
 
+
 @router.get("/{empleado_id}", response_model=EmpleadoResponseSchema)
-def obtener_empleado(empleado_id: int, db: Session = Depends(get_db)):
+async def obtener_empleado(
+    empleado_id: int,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Obtiene un empleado por su ID
     """
-    emp = db.query(Empleado).filter(Empleado.id == empleado_id).first()
+    stmt = select(Empleado).where(Empleado.id == empleado_id)
+    result = await db.execute(stmt)
+    emp = result.scalars().first()
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
     return emp
 
 
 @router.put("/{empleado_id}", response_model=EmpleadoResponseSchema)
-def actualizar_empleado_completo(
+async def actualizar_empleado_completo(
     empleado_id: int,
     emp_in: EmpleadoCreateUpdateSchema,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Actualiza TODOS los campos de un empleado (PUT).
     """
-    emp_db = db.query(Empleado).filter(Empleado.id == empleado_id).first()
+    stmt_get = select(Empleado).where(Empleado.id == empleado_id)
+    result = await db.execute(stmt_get)
+    emp_db = result.scalars().first()
     if not emp_db:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-    # Validar duplicado de documento
+    # Validar duplicado de documento (si lo cambian)
     if emp_in.numero_documento != emp_db.numero_documento:
-        duplicado = db.query(Empleado).filter(
+        stmt_dup = select(Empleado).where(
             Empleado.organizacion_id == emp_in.organizacion_id,
             Empleado.numero_documento == emp_in.numero_documento,
             Empleado.id != empleado_id
-        ).first()
+        )
+        result_dup = await db.execute(stmt_dup)
+        duplicado = result_dup.scalars().first()
         if duplicado:
-            raise HTTPException(status_code=400, detail="Documento duplicado en la misma organización.")
+            raise HTTPException(
+                status_code=400,
+                detail="Documento duplicado en la misma organización."
+            )
 
     # Normalizar + DV
     emp_in.nombre_razon_social = emp_in.nombre_razon_social.upper()
@@ -198,38 +243,45 @@ def actualizar_empleado_completo(
     emp_db.es_vendedor = emp_in.es_vendedor
     emp_db.observacion = emp_in.observacion
 
-    db.commit()
-    db.refresh(emp_db)
+    await db.commit()
+    await db.refresh(emp_db)
     return emp_db
 
 
 @router.patch("/{empleado_id}", response_model=EmpleadoResponseSchema)
-def actualizar_empleado_parcial(
+async def actualizar_empleado_parcial(
     empleado_id: int,
     emp_patch: EmpleadoPatchSchema,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Actualiza SOLO los campos que vengan en el JSON (partial update).
     """
-    emp_db = db.query(Empleado).filter(Empleado.id == empleado_id).first()
+    stmt = select(Empleado).where(Empleado.id == empleado_id)
+    result = await db.execute(stmt)
+    emp_db = result.scalars().first()
     if not emp_db:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
     campos = emp_patch.dict(exclude_unset=True)
 
-    # Validar si cambia numero_documento => duplicado en la misma org
+    # Validar si cambia numero_documento
     if "numero_documento" in campos:
         numero_nuevo = normalize_text(campos["numero_documento"]).strip()
         if numero_nuevo != emp_db.numero_documento:
             org_id = campos.get("organizacion_id", emp_db.organizacion_id)
-            duplicado = db.query(Empleado).filter(
+            stmt_dup = select(Empleado).where(
                 Empleado.organizacion_id == org_id,
                 Empleado.numero_documento == numero_nuevo,
                 Empleado.id != emp_db.id
-            ).first()
+            )
+            dup_result = await db.execute(stmt_dup)
+            duplicado = dup_result.scalars().first()
             if duplicado:
-                raise HTTPException(status_code=400, detail="Documento duplicado en la misma organización.")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Documento duplicado en la misma organización."
+                )
             campos["numero_documento"] = numero_nuevo
 
     # Si cambia nombre_razon_social => mayúsculas
@@ -237,7 +289,7 @@ def actualizar_empleado_parcial(
         campos["nombre_razon_social"] = campos["nombre_razon_social"].upper()
 
     # Recalcular DV si cambia tipo_documento_id o numero_documento
-    if "tipo_documento_id" in campos or "numero_documento" in campos:
+    if ("tipo_documento_id" in campos) or ("numero_documento" in campos):
         tdoc = campos.get("tipo_documento_id", emp_db.tipo_documento_id)
         ndoc = campos.get("numero_documento", emp_db.numero_documento)
         dv_calc = calc_dv_if_nit(tdoc, ndoc)
@@ -248,19 +300,23 @@ def actualizar_empleado_parcial(
     for key, value in campos.items():
         setattr(emp_db, key, value)
 
-    db.commit()
-    db.refresh(emp_db)
+    await db.commit()
+    await db.refresh(emp_db)
     return emp_db
 
 
 @router.delete("/{empleado_id}")
-def eliminar_empleado(
-    empleado_id: int, 
-    db: Session = Depends(get_db)
+async def eliminar_empleado(
+    empleado_id: int,
+    db: AsyncSession = Depends(get_db)
 ):
-    emp_db = db.query(Empleado).filter(Empleado.id == empleado_id).first()
+    stmt = select(Empleado).where(Empleado.id == empleado_id)
+    result = await db.execute(stmt)
+    emp_db = result.scalars().first()
     if not emp_db:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
-    db.delete(emp_db)
-    db.commit()
+
+    await db.delete(emp_db)
+    await db.commit()
+
     return {"message": "Empleado eliminado correctamente"}

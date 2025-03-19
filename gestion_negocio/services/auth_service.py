@@ -2,8 +2,11 @@ import os
 import datetime
 import jwt
 import bcrypt
-from sqlalchemy.orm import Session
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from fastapi import HTTPException, status
+
 from models.usuarios import Usuario, EstadoUsuario
 
 JWT_SECRET = os.getenv("JWT_SECRET", "secret_key")
@@ -24,15 +27,25 @@ def create_access_token(data: dict, expires_delta: int = JWT_EXPIRE_MINUTES):
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(Usuario).filter(Usuario.email == email).first()
+async def authenticate_user(db: AsyncSession, email: str, password: str):
+    """
+    Versión asíncrona: en vez de `db.query()`, usamos `select()`,
+    y `await db.execute(stmt)` para obtener los resultados.
+    """
+    stmt = select(Usuario).where(Usuario.email == email)
+    result = await db.execute(stmt)
+    user = result.scalars().first()  # Obtenemos la instancia de Usuario (o None)
+
     if not user:
         return None
+
     if not verify_password(password, user.hashed_password):
         return None
+
     if user.estado != EstadoUsuario.activo:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario inactivo o bloqueado",
         )
+
     return user

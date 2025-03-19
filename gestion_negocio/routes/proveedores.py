@@ -1,25 +1,28 @@
 # gestion_negocio/routes/proveedores.py
 
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 from database import get_db
 from schemas.proveedores import (
     ProveedorSchema,
     ProveedorResponseSchema,
-    ProveedorUpdateSchema,  # <-- Importamos el nuevo esquema de actualización parcial
+    ProveedorUpdateSchema,
     PaginatedProveedores
 )
 from models.proveedores import Proveedor
 from dependencies.auth import get_current_user
 from services.dv_calculator import calc_dv_if_nit
 
+
 router = APIRouter(prefix="/proveedores", tags=["Proveedores"], dependencies=[Depends(get_current_user)])
+
 
 def normalize_text(text: str) -> str:
     """
-    Remplaza las vocales acentuadas por vocales sin tilde.
+    Reemplaza vocales acentuadas por vocales sin tilde.
     """
     return (
         text.replace("á", "a")
@@ -29,8 +32,9 @@ def normalize_text(text: str) -> str:
             .replace("ú", "u")
     )
 
+
 @router.post("/", response_model=dict)
-def crear_proveedor(proveedor: ProveedorSchema, db: Session = Depends(get_db)):
+async def crear_proveedor(proveedor: ProveedorSchema, db: AsyncSession = Depends(get_db)):
     """
     Crea un nuevo proveedor, recibiendo todos los campos requeridos en ProveedorSchema.
     """
@@ -39,10 +43,12 @@ def crear_proveedor(proveedor: ProveedorSchema, db: Session = Depends(get_db)):
     proveedor.numero_documento = normalize_text(proveedor.numero_documento).strip()
 
     # 2) Verificar duplicado en la misma organización
-    existe_prov = db.query(Proveedor).filter(
+    stmt_duplicado = select(Proveedor).where(
         Proveedor.organizacion_id == proveedor.organizacion_id,
         Proveedor.numero_documento == proveedor.numero_documento
-    ).first()
+    )
+    result_dup = await db.execute(stmt_duplicado)
+    existe_prov = result_dup.scalars().first()
     if existe_prov:
         raise HTTPException(
             status_code=400,
@@ -81,9 +87,10 @@ def crear_proveedor(proveedor: ProveedorSchema, db: Session = Depends(get_db)):
         sucursal_id=proveedor.sucursal_id,
         observacion=proveedor.observacion
     )
+
     db.add(nuevo_proveedor)
-    db.commit()
-    db.refresh(nuevo_proveedor)
+    await db.commit()
+    await db.refresh(nuevo_proveedor)
 
     return {
         "message": "Proveedor creado con éxito",
@@ -91,9 +98,10 @@ def crear_proveedor(proveedor: ProveedorSchema, db: Session = Depends(get_db)):
         "numero_documento": nuevo_proveedor.numero_documento
     }
 
+
 @router.get("/", response_model=PaginatedProveedores)
-def obtener_proveedores(
-    db: Session = Depends(get_db),
+async def obtener_proveedores(
+    db: AsyncSession = Depends(get_db),
     search: Optional[str] = Query(None, description="Texto de búsqueda"),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = 10
@@ -101,9 +109,12 @@ def obtener_proveedores(
     """
     Retorna una lista paginada de proveedores, permitiendo búsqueda parcial en 'nombre_razon_social'.
     """
-    query = db.query(Proveedor).options(
-        joinedload(Proveedor.departamento),
-        joinedload(Proveedor.ciudad)
+    stmt_base = (
+        select(Proveedor)
+        .options(
+            joinedload(Proveedor.departamento),
+            joinedload(Proveedor.ciudad)
+        )
     )
 
     # Búsqueda parcial
@@ -111,18 +122,24 @@ def obtener_proveedores(
         normalized = normalize_text(search).strip().lower()
         terms = normalized.split()
         for term in terms:
-            query = query.filter(
+            stmt_base = stmt_base.where(
                 func.lower(Proveedor.nombre_razon_social).ilike(f"%{term}%")
             )
 
-    total_registros = query.count()
-    total_paginas = (total_registros + page_size - 1) // page_size if total_registros > 0 else 1
+    # Contar total
+    count_stmt = stmt_base.with_only_columns(func.count(Proveedor.id))
+    total_res = await db.execute(count_stmt)
+    total_registros = total_res.scalar() or 0
+    total_paginas = max((total_registros + page_size - 1) // page_size, 1)
 
     if page > total_paginas:
         page = total_paginas
 
     offset = (page - 1) * page_size
-    proveedores_db = query.offset(offset).limit(page_size).all()
+    stmt_paginado = stmt_base.offset(offset).limit(page_size)
+
+    result_proveedores = await db.execute(stmt_paginado)
+    proveedores_db = result_proveedores.scalars().all()
 
     data = [ProveedorResponseSchema.from_orm(p) for p in proveedores_db]
     return {
@@ -132,29 +149,35 @@ def obtener_proveedores(
         "total_registros": total_registros
     }
 
+
 @router.get("/{proveedor_id}", response_model=ProveedorResponseSchema)
-def obtener_proveedor(
+async def obtener_proveedor(
     proveedor_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Obtiene un proveedor por su ID.
     """
-    prov = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    stmt = select(Proveedor).where(Proveedor.id == proveedor_id)
+    result = await db.execute(stmt)
+    prov = result.scalars().first()
     if not prov:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
     return prov
 
+
 @router.patch("/{proveedor_id}", response_model=ProveedorResponseSchema)
-def actualizar_proveedor_parcial(
+async def actualizar_proveedor_parcial(
     proveedor_id: int,
     proveedor_data: ProveedorUpdateSchema,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Actualiza de manera parcial los campos del proveedor (solo los enviados).
     """
-    prov_db = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    stmt = select(Proveedor).where(Proveedor.id == proveedor_id)
+    result = await db.execute(stmt)
+    prov_db = result.scalars().first()
     if not prov_db:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
@@ -167,11 +190,13 @@ def actualizar_proveedor_parcial(
         if doc_nuevo != prov_db.numero_documento:
             # Verificar duplicado en la misma org
             org_id = campos.get("organizacion_id", prov_db.organizacion_id)
-            existe = db.query(Proveedor).filter(
+            stmt_dup = select(Proveedor).where(
                 Proveedor.organizacion_id == org_id,
                 Proveedor.numero_documento == doc_nuevo,
                 Proveedor.id != prov_db.id
-            ).first()
+            )
+            result_dup = await db.execute(stmt_dup)
+            existe = result_dup.scalars().first()
             if existe:
                 raise HTTPException(status_code=400, detail="Este documento ya está registrado en la organización.")
             campos["numero_documento"] = doc_nuevo
@@ -192,19 +217,22 @@ def actualizar_proveedor_parcial(
     for key, value in campos.items():
         setattr(prov_db, key, value)
 
-    db.commit()
-    db.refresh(prov_db)
+    await db.commit()
+    await db.refresh(prov_db)
     return prov_db
 
+
 @router.delete("/{proveedor_id}")
-def eliminar_proveedor(
+async def eliminar_proveedor(
     proveedor_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
-    prov_db = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    stmt = select(Proveedor).where(Proveedor.id == proveedor_id)
+    result = await db.execute(stmt)
+    prov_db = result.scalars().first()
     if not prov_db:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
 
-    db.delete(prov_db)
-    db.commit()
+    await db.delete(prov_db)
+    await db.commit()
     return {"message": "Proveedor eliminado correctamente"}
