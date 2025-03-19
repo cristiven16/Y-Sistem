@@ -27,6 +27,7 @@ mypy-extensions==1.0.0
 packaging==24.2
 passlib==1.7.4
 pathspec==0.12.1
+pg8000==1.31.2
 platformdirs==4.3.6
 pyasn1==0.6.1
 pycparser==2.22
