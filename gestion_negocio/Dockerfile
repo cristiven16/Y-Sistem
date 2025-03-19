@@ -14,7 +14,7 @@ RUN adduser --disabled-password --gecos "" fastapiuser
 USER fastapiuser
 
 COPY . .
-
+ 
 EXPOSE 8080
 
 CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8080"]
