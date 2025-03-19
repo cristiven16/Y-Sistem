@@ -28,4 +28,4 @@ availableSecrets:
 logsBucket: 'gs://y-sistem_cloudbuild'
 
 options:
-    logging: LOGGING_LEGACY  # Usamos LOGGING_LEGACY en lugar de CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY  # Guarda los logs *solo* en el bucket.
