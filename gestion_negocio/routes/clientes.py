@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 
 from database import get_db
@@ -42,7 +42,7 @@ async def crear_cliente(
     cliente.nombre_razon_social = cliente.nombre_razon_social.upper()
     cliente.numero_documento = normalize_text(cliente.numero_documento).strip()
 
-    # Verificar duplicado (misma organizacion)
+    # Verificar duplicado (misma organización)
     stmt_duplicado = select(Cliente).where(
         Cliente.organizacion_id == cliente.organizacion_id,
         Cliente.numero_documento == cliente.numero_documento
@@ -110,45 +110,45 @@ async def obtener_clientes(
     """
     Paginar clientes con filtrado por 'search' (sobre nombre_razon_social).
     """
-    # Construimos la query base
-    # joinedload no es compatible directo con AsyncSession => 
-    # para fetch con relaciones, puedes usar select con `options(joinedload(...))`.
-    # Ejemplo rápido:
-    from sqlalchemy.orm import selectinload
-    
-    base_stmt = select(Cliente).options(
-        selectinload(Cliente.departamento),
-        selectinload(Cliente.ciudad)
+    # Si 'ClienteResponseSchema' accede a 'tipo_documento', debemos cargarlo aquí.
+    base_stmt = (
+        select(Cliente)
+        .options(
+            selectinload(Cliente.departamento),
+            selectinload(Cliente.ciudad),
+            selectinload(Cliente.tipo_documento),  # <-- Se incluye para evitar MissingGreenlet
+            # Si tu modelo tiene relación con 'organizacion', 'regimen_tributario', etc.
+            # y lo usas en el esquema, agrégalo también:
+            # selectinload(Cliente.organizacion),
+            # selectinload(Cliente.regimen_tributario),
+        )
     )
+
     if search:
         normalized_search = normalize_text(search).strip().lower()
         terms = normalized_search.split()
         for term in terms:
-            # .ilike => usar func.lower(Cliente.nombre_razon_social) 
-            # ejemplo: .where(func.lower(Cliente.nombre_razon_social).ilike(...))
             base_stmt = base_stmt.where(
                 func.lower(Cliente.nombre_razon_social).ilike(f"%{term}%")
             )
 
-    # Contar total de registros
-    # Nota: para contar en asíncrono, puedes usar count_rows = select(func.count(Cliente.id))
-    # pero dado que construimos un statement base con filters, debemos adaptarlo.
+    # Contar total de registros con la misma query base
     count_stmt = base_stmt.with_only_columns(func.count(Cliente.id))
     total_result = await db.execute(count_stmt)
     total_registros = total_result.scalar() or 0
 
-    # calcular total paginas
+    # Calcular total de páginas
     total_paginas = max((total_registros + page_size - 1) // page_size, 1)
     if page > total_paginas:
         page = total_paginas
 
     offset = (page - 1) * page_size
-    # Agregar paginación
     stmt_paginado = base_stmt.offset(offset).limit(page_size)
 
     result_clientes = await db.execute(stmt_paginado)
     clientes_db = result_clientes.scalars().all()
 
+    # Convertir a Pydantic (asegúrate de que el esquema tenga from_attributes = True o orm_mode)
     data = [ClienteResponseSchema.from_orm(c) for c in clientes_db]
 
     return {
@@ -165,9 +165,18 @@ async def obtener_cliente(
     current_user=Depends(get_current_user)
 ):
     """
-    Obtiene el cliente por su ID.
+    Obtiene un cliente por su ID.
     """
-    stmt = select(Cliente).where(Cliente.id == cliente_id)
+    # Cargar también las relaciones en la consulta detallada
+    stmt = (
+        select(Cliente)
+        .where(Cliente.id == cliente_id)
+        .options(
+            selectinload(Cliente.departamento),
+            selectinload(Cliente.ciudad),
+            selectinload(Cliente.tipo_documento),  # <-- Igualmente aquí si la necesitas
+        )
+    )
     result = await db.execute(stmt)
     cliente_db = result.scalars().first()
     if not cliente_db:
@@ -185,21 +194,19 @@ async def actualizar_parcial_cliente(
     """
     Actualiza campos específicos del cliente (partial update).
     """
-    # 1) Obtener el cliente
+    # 1) Consulta inicial (sin relaciones o solo columnas)
     stmt = select(Cliente).where(Cliente.id == cliente_id)
     result = await db.execute(stmt)
     cliente_db = result.scalars().first()
     if not cliente_db:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    # 2) Tomamos el dict de datos
     campos = cliente_data.dict(exclude_unset=True)
 
-    # Si cambiamos numero_documento => verificar duplicado
+    # 2) Validación si se cambia el número de documento
     if "numero_documento" in campos:
         doc_nuevo = normalize_text(campos["numero_documento"]).strip()
         if doc_nuevo != cliente_db.numero_documento:
-            # Checar duplicado
             org_id = campos.get("organizacion_id", cliente_db.organizacion_id)
             stmt_dup = select(Cliente).where(
                 Cliente.organizacion_id == org_id,
@@ -209,10 +216,13 @@ async def actualizar_parcial_cliente(
             check_dup = await db.execute(stmt_dup)
             existe = check_dup.scalars().first()
             if existe:
-                raise HTTPException(status_code=400, detail="Ya existe ese documento en la organización.")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ya existe ese documento en la organización."
+                )
             campos["numero_documento"] = doc_nuevo
 
-    # Calcular DV si cambia doc o tipo_doc
+    # 3) Calcular DV si cambia tipo_doc o numero_documento
     if "tipo_documento_id" in campos or "numero_documento" in campos:
         tdoc = campos.get("tipo_documento_id", cliente_db.tipo_documento_id)
         ndoc = campos.get("numero_documento", cliente_db.numero_documento)
@@ -220,15 +230,36 @@ async def actualizar_parcial_cliente(
         if dv:
             cliente_db.dv = dv
 
-    # Asignar el resto de campos
+    # 4) Actualizar los campos en memoria
     for key, value in campos.items():
         if key == "nombre_razon_social" and value:
             value = normalize_text(value).upper()
         setattr(cliente_db, key, value)
 
     await db.commit()
-    await db.refresh(cliente_db)
-    return cliente_db
+
+    # 5) SEGUNDA CONSULTA (carga de relaciones con selectinload / joinedload)
+    #    para devolver el objeto fresco con todos sus campos y relaciones.
+    stmt2 = (
+        select(Cliente)
+        .where(Cliente.id == cliente_id)
+        .options(
+            # Asegúrate de cargar TODAS las relaciones que tu
+            # esquema ClienteResponseSchema requiera, por ejemplo:
+            selectinload(Cliente.departamento),
+            selectinload(Cliente.ciudad),
+            selectinload(Cliente.tipo_documento),
+        )
+    )
+    result2 = await db.execute(stmt2)
+    cliente_fresco = result2.scalars().first()
+
+    if not cliente_fresco:
+        # (En teoría no debería ocurrir, pero por seguridad)
+        raise HTTPException(status_code=404, detail="Cliente no encontrado tras la actualización.")
+
+    # 6) Retornar el cliente con todas las relaciones ya cargadas
+    return cliente_fresco
 
 @router.delete("/{cliente_id}")
 async def eliminar_cliente(

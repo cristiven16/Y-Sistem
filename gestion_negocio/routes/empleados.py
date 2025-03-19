@@ -18,10 +18,11 @@ from dependencies.auth import get_current_user
 from services.dv_calculator import calc_dv_if_nit
 
 
-router = APIRouter(prefix="/empleados",
-                   tags=["Empleados"],
-                   dependencies=[Depends(get_current_user)])
-
+router = APIRouter(
+    prefix="/empleados",
+    tags=["Empleados"],
+    dependencies=[Depends(get_current_user)]
+)
 
 def normalize_text(text: str) -> str:
     return (text.replace("á", "a")
@@ -30,7 +31,9 @@ def normalize_text(text: str) -> str:
                 .replace("ó", "o")
                 .replace("ú", "u"))
 
-
+# ------------------------------------------------------------------------------
+# POST: Crear Empleado
+# ------------------------------------------------------------------------------
 @router.post("/", response_model=dict)
 async def crear_empleado(
     empleado_in: EmpleadoCreateUpdateSchema,
@@ -104,7 +107,9 @@ async def crear_empleado(
         "numero_documento": nuevo.numero_documento
     }
 
-
+# ------------------------------------------------------------------------------
+# GET (lista paginada): Empleados
+# ------------------------------------------------------------------------------
 @router.get("/", response_model=PaginatedEmpleados)
 async def obtener_empleados(
     db: AsyncSession = Depends(get_db),
@@ -116,7 +121,6 @@ async def obtener_empleados(
     """
     Lista paginada de empleados, con filtro por 'search' y 'es_vendedor'.
     """
-
     stmt_base = (
         select(Empleado)
         .options(
@@ -163,7 +167,9 @@ async def obtener_empleados(
         "total_registros": total_registros
     }
 
-
+# ------------------------------------------------------------------------------
+# GET (detalle): Empleado por ID
+# ------------------------------------------------------------------------------
 @router.get("/{empleado_id}", response_model=EmpleadoResponseSchema)
 async def obtener_empleado(
     empleado_id: int,
@@ -172,14 +178,24 @@ async def obtener_empleado(
     """
     Obtiene un empleado por su ID
     """
-    stmt = select(Empleado).where(Empleado.id == empleado_id)
+    stmt = (
+        select(Empleado)
+        .where(Empleado.id == empleado_id)
+        .options(
+            selectinload(Empleado.tipo_documento),
+            selectinload(Empleado.departamento),
+            selectinload(Empleado.ciudad),
+        )
+    )
     result = await db.execute(stmt)
     emp = result.scalars().first()
     if not emp:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
     return emp
 
-
+# ------------------------------------------------------------------------------
+# PUT: Actualizar empleado (completo)
+# ------------------------------------------------------------------------------
 @router.put("/{empleado_id}", response_model=EmpleadoResponseSchema)
 async def actualizar_empleado_completo(
     empleado_id: int,
@@ -189,13 +205,14 @@ async def actualizar_empleado_completo(
     """
     Actualiza TODOS los campos de un empleado (PUT).
     """
+    # 1) Consulta inicial (sin relaciones o con las mínimas)
     stmt_get = select(Empleado).where(Empleado.id == empleado_id)
     result = await db.execute(stmt_get)
     emp_db = result.scalars().first()
     if not emp_db:
         raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-    # Validar duplicado de documento (si lo cambian)
+    # 2) Validar duplicado de documento (si lo cambian)
     if emp_in.numero_documento != emp_db.numero_documento:
         stmt_dup = select(Empleado).where(
             Empleado.organizacion_id == emp_in.organizacion_id,
@@ -210,12 +227,12 @@ async def actualizar_empleado_completo(
                 detail="Documento duplicado en la misma organización."
             )
 
-    # Normalizar + DV
+    # 3) Normalizar + DV
     emp_in.nombre_razon_social = emp_in.nombre_razon_social.upper()
     emp_in.numero_documento = normalize_text(emp_in.numero_documento).strip()
     dv_calc = calc_dv_if_nit(emp_in.tipo_documento_id, emp_in.numero_documento)
 
-    # Asignar
+    # 4) Asignar
     emp_db.organizacion_id = emp_in.organizacion_id
     emp_db.tipo_documento_id = emp_in.tipo_documento_id
     emp_db.dv = dv_calc
@@ -243,20 +260,40 @@ async def actualizar_empleado_completo(
     emp_db.es_vendedor = emp_in.es_vendedor
     emp_db.observacion = emp_in.observacion
 
+    # 5) Guardar
     await db.commit()
-    await db.refresh(emp_db)
-    return emp_db
 
+    # 6) Realizar segunda consulta para recargar con relaciones
+    stmt2 = (
+        select(Empleado)
+        .where(Empleado.id == empleado_id)
+        .options(
+            selectinload(Empleado.tipo_documento),
+            selectinload(Empleado.departamento),
+            selectinload(Empleado.ciudad),
+        )
+    )
+    result2 = await db.execute(stmt2)
+    emp_recargado = result2.scalars().first()
 
+    if not emp_recargado:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado tras actualizar.")
+
+    return emp_recargado
+
+# ------------------------------------------------------------------------------
+# PATCH: Actualizar empleado (parcial)
+# ------------------------------------------------------------------------------
 @router.patch("/{empleado_id}", response_model=EmpleadoResponseSchema)
 async def actualizar_empleado_parcial(
     empleado_id: int,
     emp_patch: EmpleadoPatchSchema,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Actualiza SOLO los campos que vengan en el JSON (partial update).
     """
+    # 1) Cargamos inicialmente SOLO el objeto sin relaciones (o con pocas relaciones).
     stmt = select(Empleado).where(Empleado.id == empleado_id)
     result = await db.execute(stmt)
     emp_db = result.scalars().first()
@@ -265,7 +302,7 @@ async def actualizar_empleado_parcial(
 
     campos = emp_patch.dict(exclude_unset=True)
 
-    # Validar si cambia numero_documento
+    # 2) Validar si cambia numero_documento
     if "numero_documento" in campos:
         numero_nuevo = normalize_text(campos["numero_documento"]).strip()
         if numero_nuevo != emp_db.numero_documento:
@@ -284,11 +321,11 @@ async def actualizar_empleado_parcial(
                 )
             campos["numero_documento"] = numero_nuevo
 
-    # Si cambia nombre_razon_social => mayúsculas
+    # 3) Si cambia nombre_razon_social => convertir a mayúsculas
     if "nombre_razon_social" in campos and campos["nombre_razon_social"]:
         campos["nombre_razon_social"] = campos["nombre_razon_social"].upper()
 
-    # Recalcular DV si cambia tipo_documento_id o numero_documento
+    # 4) Recalcular DV si cambia tipo_documento_id o numero_documento
     if ("tipo_documento_id" in campos) or ("numero_documento" in campos):
         tdoc = campos.get("tipo_documento_id", emp_db.tipo_documento_id)
         ndoc = campos.get("numero_documento", emp_db.numero_documento)
@@ -296,15 +333,36 @@ async def actualizar_empleado_parcial(
         if dv_calc:
             emp_db.dv = dv_calc
 
-    # Asignar
+    # 5) Asignar campos en el objeto
     for key, value in campos.items():
         setattr(emp_db, key, value)
 
     await db.commit()
-    await db.refresh(emp_db)
-    return emp_db
 
+    # 6) Hacemos UNA SEGUNDA CONSULTA para recargar con relaciones (evitando lazy-load)
+    stmt2 = (
+        select(Empleado)
+        .where(Empleado.id == empleado_id)
+        .options(
+            selectinload(Empleado.tipo_documento),
+            # Si tu EmpleadoResponseSchema también incluye otros:
+            selectinload(Empleado.departamento),
+            selectinload(Empleado.ciudad),
+        )
+    )
+    result2 = await db.execute(stmt2)
+    emp_recargado = result2.scalars().first()
 
+    if not emp_recargado:
+        # Muy poco probable, pero por seguridad
+        raise HTTPException(status_code=404, detail="Empleado no encontrado tras actualizar.")
+
+    # 7) Retornamos el objeto fresco con sus relaciones ya cargadas
+    return emp_recargado
+
+# ------------------------------------------------------------------------------
+# DELETE: Eliminar Empleado
+# ------------------------------------------------------------------------------
 @router.delete("/{empleado_id}")
 async def eliminar_empleado(
     empleado_id: int,

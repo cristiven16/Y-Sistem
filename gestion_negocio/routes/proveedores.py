@@ -17,7 +17,11 @@ from dependencies.auth import get_current_user
 from services.dv_calculator import calc_dv_if_nit
 
 
-router = APIRouter(prefix="/proveedores", tags=["Proveedores"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/proveedores",
+    tags=["Proveedores"],
+    dependencies=[Depends(get_current_user)]
+)
 
 
 def normalize_text(text: str) -> str:
@@ -34,7 +38,10 @@ def normalize_text(text: str) -> str:
 
 
 @router.post("/", response_model=dict)
-async def crear_proveedor(proveedor: ProveedorSchema, db: AsyncSession = Depends(get_db)):
+async def crear_proveedor(
+    proveedor: ProveedorSchema,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Crea un nuevo proveedor, recibiendo todos los campos requeridos en ProveedorSchema.
     """
@@ -87,7 +94,6 @@ async def crear_proveedor(proveedor: ProveedorSchema, db: AsyncSession = Depends
         sucursal_id=proveedor.sucursal_id,
         observacion=proveedor.observacion
     )
-
     db.add(nuevo_proveedor)
     await db.commit()
     await db.refresh(nuevo_proveedor)
@@ -109,11 +115,16 @@ async def obtener_proveedores(
     """
     Retorna una lista paginada de proveedores, permitiendo búsqueda parcial en 'nombre_razon_social'.
     """
+    # IMPORTANTE: si tu 'ProveedorResponseSchema' (o ProveedorSchema) incluye 'tipo_documento'
+    # (y tu modelo Proveedor también la define como relationship),
+    # debes agregar: joinedload(Proveedor.tipo_documento).
     stmt_base = (
         select(Proveedor)
         .options(
             joinedload(Proveedor.departamento),
-            joinedload(Proveedor.ciudad)
+            joinedload(Proveedor.ciudad),
+            # Si tu esquema también usa 'tipo_documento', cárgalo:
+            joinedload(Proveedor.tipo_documento)
         )
     )
 
@@ -141,7 +152,9 @@ async def obtener_proveedores(
     result_proveedores = await db.execute(stmt_paginado)
     proveedores_db = result_proveedores.scalars().all()
 
+    # Convertir a Pydantic (asegúrate de tener from_attributes = True en ProveedorResponseSchema)
     data = [ProveedorResponseSchema.from_orm(p) for p in proveedores_db]
+
     return {
         "data": data,
         "page": page,
@@ -158,7 +171,17 @@ async def obtener_proveedor(
     """
     Obtiene un proveedor por su ID.
     """
-    stmt = select(Proveedor).where(Proveedor.id == proveedor_id)
+    # Si tu esquema incluye relaciones como 'departamento', 'ciudad', 'tipo_documento', etc.,
+    # cárgalas aquí también:
+    stmt = (
+        select(Proveedor)
+        .where(Proveedor.id == proveedor_id)
+        .options(
+            joinedload(Proveedor.departamento),
+            joinedload(Proveedor.ciudad),
+            joinedload(Proveedor.tipo_documento),
+        )
+    )
     result = await db.execute(stmt)
     prov = result.scalars().first()
     if not prov:
@@ -174,8 +197,18 @@ async def actualizar_proveedor_parcial(
 ):
     """
     Actualiza de manera parcial los campos del proveedor (solo los enviados).
+    Retorna el proveedor actualizado.
     """
-    stmt = select(Proveedor).where(Proveedor.id == proveedor_id)
+    # Carga anticipada de relaciones.
+    stmt = (
+        select(Proveedor)
+        .where(Proveedor.id == proveedor_id)
+        .options(
+            joinedload(Proveedor.departamento),
+            joinedload(Proveedor.ciudad),
+            joinedload(Proveedor.tipo_documento),
+        )
+    )
     result = await db.execute(stmt)
     prov_db = result.scalars().first()
     if not prov_db:
@@ -198,7 +231,10 @@ async def actualizar_proveedor_parcial(
             result_dup = await db.execute(stmt_dup)
             existe = result_dup.scalars().first()
             if existe:
-                raise HTTPException(status_code=400, detail="Este documento ya está registrado en la organización.")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Este documento ya está registrado en la organización."
+                )
             campos["numero_documento"] = doc_nuevo
 
     # Si cambia 'nombre_razon_social', normalizar
@@ -219,6 +255,22 @@ async def actualizar_proveedor_parcial(
 
     await db.commit()
     await db.refresh(prov_db)
+
+    # OPCIONAL: si quieres devolver el objeto con todas las relaciones
+    # cargadas tras la actualización, haz una segunda consulta:
+    # stmt_updated = (
+    #     select(Proveedor)
+    #     .where(Proveedor.id == proveedor_id)
+    #     .options(
+    #         joinedload(Proveedor.departamento),
+    #         joinedload(Proveedor.ciudad),
+    #         joinedload(Proveedor.tipo_documento),
+    #     )
+    # )
+    # result_updated = await db.execute(stmt_updated)
+    # prov_updated = result_updated.scalars().first()
+    # return prov_updated
+
     return prov_db
 
 
@@ -227,6 +279,9 @@ async def eliminar_proveedor(
     proveedor_id: int,
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Elimina un proveedor por su ID.
+    """
     stmt = select(Proveedor).where(Proveedor.id == proveedor_id)
     result = await db.execute(stmt)
     prov_db = result.scalars().first()

@@ -1,3 +1,5 @@
+# gestion_negocio/schemas/proveedores.py
+
 from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 from typing import Optional, List
 
@@ -11,7 +13,7 @@ from .common_schemas import (
 class ProveedorSchema(BaseModel):
     """
     Esquema base para crear/actualizar un Proveedor
-    sin llamadas a la BD.
+    (sin llamadas directas a la BD).
     """
     id: Optional[int] = None
 
@@ -22,7 +24,7 @@ class ProveedorSchema(BaseModel):
     tipo_documento_id: int = Field(..., description="ID del tipo de documento (p.ej. NIT=2, CC=1, etc.)")
     tipo_documento: Optional[TipoDocumentoSchema] = None
 
-    # DV (dígito de verificación), calculado en la capa de servicios/model
+    # DV (dígito de verificación), calculado en capa de servicios
     dv: Optional[str] = Field(None, description="Dígito de verificación si es NIT")
 
     numero_documento: str = Field(..., min_length=3, max_length=20)
@@ -52,22 +54,24 @@ class ProveedorSchema(BaseModel):
     descuento: float = 0.0
     cupo_credito: float = 0.0
 
-    # No se incluye: tipo_marketing_id, ruta_logistica_id, vendedor_id
+    # Ejemplo de campo que no incluyes: tipo_marketing_id, etc.
     sucursal_id: int
     observacion: Optional[str] = None
 
-    # Relacionados
+    # Relacionados (para lectura)
     departamento: Optional[DepartamentoSchema] = None
     ciudad: Optional[CiudadSchema] = None
 
     @model_validator(mode="after")
     def validar_contacto(self):
         """
-        Requiere al menos un número de contacto 
+        Requiere al menos un número de contacto
         (telefono1, telefono2, celular o whatsapp).
         """
         if not any([self.telefono1, self.telefono2, self.celular, self.whatsapp]):
-            raise ValueError("Debe proporcionar al menos un número de contacto (teléfono/celular/whatsapp).")
+            raise ValueError(
+                "Debe proporcionar al menos un número de contacto (teléfono/celular/whatsapp)."
+            )
         return self
 
     @field_validator("nombre_razon_social")
@@ -78,10 +82,13 @@ class ProveedorSchema(BaseModel):
 
     class Config:
         from_attributes = True
+        # Puedes usar extra="forbid" para rechazar campos no definidos del front.
 
 
 class ProveedorUpdateSchema(BaseModel):
-    """ Todos los campos opcionales para permitir actualización parcial. """
+    """
+    Todos los campos opcionales para permitir actualización parcial.
+    """
     organizacion_id: Optional[int] = None
     tipo_documento_id: Optional[int] = None
     dv: Optional[str] = None
@@ -110,11 +117,13 @@ class ProveedorUpdateSchema(BaseModel):
     observacion: Optional[str] = None
 
     class Config:
-        extra = "ignore"  # Ignora campos desconocidos del front
+        extra = "ignore"  # Ignora campos desconocidos del front-end
+
 
 class ProveedorResponseSchema(ProveedorSchema):
-    """ 
-    Esquema para devolver datos de un proveedor.
+    """
+    Esquema especializado para devolver los datos de un Proveedor,
+    forzando que el 'id' sea obligatorio.
     """
     id: int
 

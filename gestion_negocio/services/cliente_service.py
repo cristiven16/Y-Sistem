@@ -1,17 +1,22 @@
 # gestion_negocio/services/cliente_service.py
 
-from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 
-# Importa tu modelo y schema
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
+
 from models.clientes import Cliente
 from models.organizaciones import Sucursal
-from schemas.clientes import ClienteSchema, ClienteResponseSchema
-# Funciones de validación y DV
-from services.common_validations import validate_documento_unico, validate_sucursal_same_org
+from schemas.clientes import ClienteSchema
+from services.common_validations import (
+    validate_documento_unico,
+    validate_sucursal_same_org
+)
 from services.dv_calculator import calc_dv_if_nit
 
-def create_cliente(db: Session, data: ClienteSchema) -> Cliente:
+
+async def create_cliente(db: AsyncSession, data: ClienteSchema) -> Cliente:
     """
     Crea un nuevo cliente, aplicando lógica de negocio:
       - Verifica unicidad (org_id, numero_documento).
@@ -19,7 +24,7 @@ def create_cliente(db: Session, data: ClienteSchema) -> Cliente:
       - Calcula DV si es NIT.
     """
     # 1) Verificar unicidad: (organizacion_id, numero_documento)
-    validate_documento_unico(
+    await validate_documento_unico(
         db=db,
         model_class=Cliente,
         organizacion_id=data.organizacion_id,
@@ -28,7 +33,7 @@ def create_cliente(db: Session, data: ClienteSchema) -> Cliente:
 
     # 2) Verificar sucursal pertenece a la misma org (si data.sucursal_id existe)
     if data.sucursal_id is not None:
-        validate_sucursal_same_org(
+        await validate_sucursal_same_org(
             db=db,
             sucursal_id=data.sucursal_id,
             organizacion_id=data.organizacion_id,
@@ -39,7 +44,7 @@ def create_cliente(db: Session, data: ClienteSchema) -> Cliente:
     dv_calculado = calc_dv_if_nit(data.tipo_documento_id, data.numero_documento)
 
     # 4) Crear la instancia de Cliente
-    cliente = Cliente(
+    nuevo_cliente = Cliente(
         tipo_documento_id=data.tipo_documento_id,
         organizacion_id=data.organizacion_id,
         numero_documento=data.numero_documento,
@@ -70,33 +75,34 @@ def create_cliente(db: Session, data: ClienteSchema) -> Cliente:
         vendedor_id=data.vendedor_id,
         observacion=data.observacion
     )
+    db.add(nuevo_cliente)
+    await db.commit()
+    await db.refresh(nuevo_cliente)
+    return nuevo_cliente
 
-    db.add(cliente)
-    db.commit()
-    db.refresh(cliente)
-    return cliente
 
-def update_cliente(db: Session, cliente_id: int, data: ClienteSchema) -> Cliente:
+async def update_cliente(db: AsyncSession, cliente_id: int, data: ClienteSchema) -> Cliente:
     """
-    Actualiza un cliente existente.
-      - Verifica si cambia numero_documento => verificar unicidad.
+    Actualiza un cliente existente (full update).
+      - Verifica si cambia numero_documento => verifica unicidad.
       - Verifica sucursal => misma org.
       - Recalcula DV si es NIT.
     """
-    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).one_or_none()
+    # Buscar el cliente con AsyncSession
+    stmt = select(Cliente).where(Cliente.id == cliente_id)
+    result = await db.execute(stmt)
+    cliente = result.scalars().first()
     if not cliente:
         raise ValueError(f"Cliente con ID={cliente_id} no encontrado.")
 
-    # Verificamos que la organizacion no cambie, 
-    # o si cambia, aplicamos la misma lógica
+    # Si la organización cambió, decidir si lo permites o no:
     if data.organizacion_id != cliente.organizacion_id:
-        # Podrías permitirlo o no. 
-        # Si lo permites, habría que chequear unicidad en la nueva org.
+        # Podrías permitirlo y volver a validar la unicidad en la nueva org
         pass
 
     # 1) Si el numero_documento cambió => check unicidad
     if data.numero_documento != cliente.numero_documento:
-        validate_documento_unico(
+        await validate_documento_unico(
             db=db,
             model_class=Cliente,
             organizacion_id=data.organizacion_id,
@@ -105,7 +111,7 @@ def update_cliente(db: Session, cliente_id: int, data: ClienteSchema) -> Cliente
 
     # 2) Si sucursal_id cambió => validar org
     if data.sucursal_id is not None and data.sucursal_id != cliente.sucursal_id:
-        validate_sucursal_same_org(
+        await validate_sucursal_same_org(
             db=db,
             sucursal_id=data.sucursal_id,
             organizacion_id=data.organizacion_id,
@@ -145,18 +151,28 @@ def update_cliente(db: Session, cliente_id: int, data: ClienteSchema) -> Cliente
     cliente.vendedor_id = data.vendedor_id
     cliente.observacion = data.observacion
 
-    db.commit()
-    db.refresh(cliente)
+    await db.commit()
+    await db.refresh(cliente)
     return cliente
 
-def get_cliente(db: Session, cliente_id: int) -> Optional[Cliente]:
-    return db.query(Cliente).filter(Cliente.id == cliente_id).one_or_none()
 
-def list_clientes(db: Session, organizacion_id: Optional[int] = None) -> list[Cliente]:
+async def get_cliente(db: AsyncSession, cliente_id: int) -> Optional[Cliente]:
     """
-    Lista clientes. Opcionalmente filtra por organizacion_id.
+    Devuelve un cliente por su ID o None si no existe.
     """
-    query = db.query(Cliente)
+    stmt = select(Cliente).where(Cliente.id == cliente_id)
+    result = await db.execute(stmt)
+    return result.scalars().first()
+
+
+async def list_clientes(db: AsyncSession, organizacion_id: Optional[int] = None) -> List[Cliente]:
+    """
+    Lista todos los clientes. 
+    Si se proporciona `organizacion_id`, filtra por esa organización.
+    """
+    stmt = select(Cliente)
     if organizacion_id is not None:
-        query = query.filter(Cliente.organizacion_id == organizacion_id)
-    return query.all()
+        stmt = stmt.where(Cliente.organizacion_id == organizacion_id)
+
+    result = await db.execute(stmt)
+    return result.scalars().all()

@@ -1,24 +1,27 @@
 # gestion_negocio/services/empleado_service.py
 
-from sqlalchemy.orm import Session
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 from models.empleados import Empleado
 from models.organizaciones import Sucursal
 from schemas.empleados import EmpleadoCreateUpdateSchema
-from services.common_validations import validate_documento_unico, validate_sucursal_same_org
+from services.common_validations import (
+    validate_documento_unico,
+    validate_sucursal_same_org
+)
 from services.dv_calculator import calc_dv_if_nit
 
-def create_empleado(db: Session, data: EmpleadoCreateUpdateSchema) -> Empleado:
+async def create_empleado(db: AsyncSession, data: EmpleadoCreateUpdateSchema) -> Empleado:
     # 1. Verificar que (organizacion_id, numero_documento) no exista
-    validate_documento_unico(
+    await validate_documento_unico(
         db=db,
         model_class=Empleado,
         organizacion_id=data.organizacion_id,
         numero_documento=data.numero_documento
     )
 
-    # 2. Verificar sucursal es de la misma org
-    validate_sucursal_same_org(
+    # 2. Verificar que la sucursal pertenece a la misma org
+    await validate_sucursal_same_org(
         db=db,
         sucursal_id=data.sucursal_id,
         organizacion_id=data.organizacion_id,
@@ -57,7 +60,9 @@ def create_empleado(db: Session, data: EmpleadoCreateUpdateSchema) -> Empleado:
         es_vendedor=data.es_vendedor,
         observacion=data.observacion
     )
+
+    # Agregar y confirmar cambios
     db.add(empleado)
-    db.commit()
-    db.refresh(empleado)
+    await db.commit()
+    await db.refresh(empleado)
     return empleado

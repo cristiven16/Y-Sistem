@@ -1,9 +1,11 @@
 # gestion_negocio/services/common_validations.py
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-def validate_documento_unico(
-    db: Session,
+
+async def validate_documento_unico(
+    db: AsyncSession,
     model_class,
     organizacion_id: int,
     numero_documento: str
@@ -13,22 +15,23 @@ def validate_documento_unico(
     con la misma organizacion_id y numero_documento.
     Lanza ValueError si ya existe.
     """
-    instance = (
-        db.query(model_class)
-        .filter_by(
-            organizacion_id=organizacion_id,
-            numero_documento=numero_documento
-        )
-        .first()
+    stmt = (
+        select(model_class)
+        .where(model_class.organizacion_id == organizacion_id)
+        .where(model_class.numero_documento == numero_documento)
     )
+    result = await db.execute(stmt)
+    instance = result.scalars().first()
+
     if instance:
         raise ValueError(
             f"El número de documento '{numero_documento}' "
             f"ya está registrado en la organización {organizacion_id}."
         )
 
-def validate_sucursal_same_org(
-    db: Session,
+
+async def validate_sucursal_same_org(
+    db: AsyncSession,
     sucursal_id: int,
     organizacion_id: int,
     SucursalModel
@@ -38,9 +41,13 @@ def validate_sucursal_same_org(
     a la misma organizacion_id.
     Lanza ValueError si no coincide o no existe.
     """
-    sucursal = db.query(SucursalModel).filter_by(id=sucursal_id).one_or_none()
+    stmt = select(SucursalModel).where(SucursalModel.id == sucursal_id)
+    result = await db.execute(stmt)
+    sucursal = result.scalars().first()
+
     if not sucursal:
         raise ValueError(f"No existe la sucursal con ID={sucursal_id}.")
+
     if sucursal.organizacion_id != organizacion_id:
         raise ValueError(
             f"La sucursal {sucursal_id} pertenece a otra organización "

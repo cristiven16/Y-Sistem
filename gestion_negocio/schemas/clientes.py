@@ -3,8 +3,8 @@
 from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
 from typing import Optional, List
 
-# Si deseas reusar esquemas para datos relacionados
-# (tipo_documento, departamento, ciudad, etc.), importa desde tus common_schemas
+# Si deseas reutilizar esquemas para datos relacionados
+# (ej. tipo_documento, departamento, ciudad), los importas desde tus common_schemas:
 from .common_schemas import (
     TipoDocumentoSchema,
     DepartamentoSchema,
@@ -15,11 +15,10 @@ from .common_schemas import (
 # 🔹 ESQUEMA BÁSICO DEL CLIENTE (Para crear / actualizar)
 # ───────────────────────────────────────────────────────────
 class ClienteSchema(BaseModel):
-    """ 
+    """
     Esquema base para crear/actualizar un Cliente.
     NO realiza consultas a la BD (toda lógica avanzada va a services/).
     """
-
     # Para creación/actualización, id es opcional
     id: Optional[int] = None
 
@@ -76,7 +75,7 @@ class ClienteSchema(BaseModel):
     departamento: Optional[DepartamentoSchema] = None
     ciudad: Optional[CiudadSchema] = None
 
-    # Validador que exige al menos un número de contacto
+    # Validación que exige al menos un número de contacto
     @model_validator(mode="after")
     def validar_contacto(self):
         if not any([self.telefono1, self.telefono2, self.celular, self.whatsapp]):
@@ -91,9 +90,12 @@ class ClienteSchema(BaseModel):
 
     class Config:
         from_attributes = True
-        # Puedes usar extra="forbid" si deseas rechazar campos no definidos.
+        # Puedes usar extra = "forbid" si deseas rechazar campos no definidos.
 
 
+# ───────────────────────────────────────────────────────────
+# 🔹 ESQUEMA PARA ACTUALIZACIÓN PARCIAL
+# ───────────────────────────────────────────────────────────
 class ClienteUpdateSchema(BaseModel):
     """
     Todos los campos opcionales para permitir actualización parcial.
@@ -132,24 +134,29 @@ class ClienteUpdateSchema(BaseModel):
 
     class Config:
         extra = "ignore"
+        # No es necesario 'from_attributes' aquí ya que normalmente
+        # usas este esquema para *recibir* datos del cliente.
 
 
 # ───────────────────────────────────────────────────────────
-# 🔹 ESQUEMA PARA RESPUESTA DE CLIENTE
-#    Incluye el ID y la relación 'tipo_documento', etc.
+# 🔹 ESQUEMA PARA RESPUESTA DE CLIENTE (LECTURA)
+#    Incluye el ID y las relaciones si corresponden.
 # ───────────────────────────────────────────────────────────
 class ClienteResponseSchema(ClienteSchema):
     """
-    Esquema especializado para devolver la info de un Cliente.
+    Esquema especializado para devolver la información de un Cliente,
+    con 'id' requerido en la respuesta.
     """
-    id: int
+    id: int  # En la creación era opcional, aquí es obligatorio para respuesta
 
     class Config:
         from_attributes = True
+        # Esto permite que Pydantic use .from_orm(...) o .model_validate(obj)
+        # sobre un objeto SQLAlchemy.
 
 
 # ───────────────────────────────────────────────────────────
-# 🔹 Esquema para respuesta paginada
+# 🔹 ESQUEMA PARA RESPUESTA PAGINADA
 # ───────────────────────────────────────────────────────────
 class PaginatedClientes(BaseModel):
     """

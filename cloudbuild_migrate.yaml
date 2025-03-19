@@ -1,0 +1,26 @@
+steps:
+  - name: 'python:3.11-slim'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        apt-get update && apt-get install -y wget
+        wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+        chmod +x cloud_sql_proxy
+        ./cloud_sql_proxy -instances="PROJECT:REGION:INSTANCE=tcp:5432" &
+        sleep 5
+
+        pip install alembic pg8000
+        cd gestion_negocio
+
+        export CLOUD_SQL_CONNECTION_NAME="PROJECT:REGION:INSTANCE"
+        export DB_USER="postgres"
+        export DB_PASSWORD=$$DB_PASSWORD
+        export DB_NAME="postgres"
+        # DB_HOST=127.0.0.1, DB_PORT=5432 => si quieres forzar, o lo calculamos
+        # ephemeral pipeline -> run migrations
+        alembic upgrade head
+
+secrets:
+  - secretEnv:
+      DB_PASSWORD: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/latest

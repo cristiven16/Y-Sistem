@@ -1,50 +1,64 @@
 # gestion_negocio/alembic/env.py
+
 import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
 from alembic import context
-from dotenv import load_dotenv
+from sqlalchemy import create_engine, pool
 
-# Añade el directorio raíz del proyecto a sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from models import Base  # Importa Base desde tu carpeta models
-
-
-# Carga .env SOLO si estamos en local.  Usa la misma lógica que en database.py.
+# Solo si no estamos en GCP, cargamos .env (opcional)
 if os.getenv("GOOGLE_CLOUD_PROJECT") is None:
+    from dotenv import load_dotenv
     load_dotenv()
 
-# Configuración
+# Ajustar el path para importar tus modelos, si es necesario
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+from models import Base  # Asegúrate de que models/__init__.py define Base
+
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
-def get_database_url():
-    """Construye la URL de la base de datos dinámicamente."""
-    cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
+def get_sync_database_url() -> str:
+    """
+    Retorna la URL de la base de datos con pg8000.
+    - Si detecta `CLOUD_SQL_CONNECTION_NAME`, asume que en Cloud Build/Run usarás Auth Proxy con HOST=127.0.0.1, PORT=5432.
+    - Caso contrario, usa DB_HOST, DB_PORT, etc. de tu .env o variables de entorno.
+    """
 
+    cloud_sql_connection_name = os.getenv("CLOUD_SQL_CONNECTION_NAME")
+
+    db_user = os.getenv("DB_USER", "postgres")
+    db_password = os.getenv("DB_PASSWORD", "")
+    db_name = os.getenv("DB_NAME", "postgres")
+    db_host = os.getenv("DB_HOST", "")
+    db_port = os.getenv("DB_PORT", "5432")
+
+    # Si existe la variable CLOUD_SQL_CONNECTION_NAME,
+    # asumimos que en tu pipeline/entorno levantas un proxy en 127.0.0.1:5432
+    # (o Cloud Run con host=127.0.0.1). No usamos "/cloudsql/..." con pg8000.
     if cloud_sql_connection_name:
-        # En Cloud Run, usa pg8000 y el socket Unix.
-        db_host = f"/cloudsql/{cloud_sql_connection_name}"
-        return f"postgresql+pg8000://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASS')}@{db_host}/{os.environ.get('DB_NAME')}"
+        # Forzamos host=127.0.0.1 y el puerto 5432, en la idea de que el proxy está en local
+        if not db_host:
+            db_host = "127.0.0.1"
+        if not db_port:
+            db_port = "5432"
+
+        # Generamos la URL
+        return f"postgresql+pg8000://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     else:
-        # En local, usa .env y la configuración local (con pg8000 o psycopg2).
-        db_user = os.getenv("DB_USER", "postgres")
-        db_password = os.getenv("DB_PASSWORD", "")
-        db_name = os.getenv("DB_NAME", "postgres")
-        db_host = os.getenv("DB_HOST", "localhost")
-        db_port = os.getenv("DB_PORT", "5432")
-        # Elige el driver (pg8000 recomendado):
-        # return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}" # Para psycopg2
-        return f"postgresql+pg8000://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"  # Para pg8000
+        # Caso local / fallback
+        if not db_host:
+            db_host = "localhost"
+        return f"postgresql+pg8000://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 def run_migrations_offline() -> None:
     """Ejecuta migraciones en modo 'offline'."""
-    url = get_database_url()  # Usa la función para obtener la URL.
+    url = get_sync_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -56,9 +70,10 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Ejecuta migraciones en modo 'online'."""
-    # Usa la URL dinámica.  No es necesario pasar 'engine_from_config'.
-    engine = create_engine(get_database_url(), poolclass=pool.NullPool)
-    with engine.connect() as connection:
+    url = get_sync_database_url()
+    connectable = create_engine(url, poolclass=pool.NullPool)
+
+    with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
