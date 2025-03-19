@@ -10,7 +10,7 @@ steps:
         ./cloud_sql_proxy -instances="y-sistem:us-central1:y-system-version-1=tcp:5432" &
         sleep 5
 
-        pip install alembic pg8000
+        pip install alembic pg8000 python-dotenv
         cd gestion_negocio
 
         export CLOUD_SQL_CONNECTION_NAME="y-sistem:us-central1:y-system-version-1"
