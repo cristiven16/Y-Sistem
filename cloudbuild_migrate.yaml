@@ -11,7 +11,7 @@ steps:
         sleep 5
 
         pip install alembic pg8000
-        cd gestion_negocio  # Asegúrate de que este directorio exista. Usa un Dockerfile si es necesario.
+        cd gestion_negocio
 
         export CLOUD_SQL_CONNECTION_NAME="y-sistem:us-central1:y-system-version-1"
         export DB_USER="postgres"
@@ -24,8 +24,8 @@ availableSecrets:
   - versionName: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/1  # Reemplaza PROJECT y la versión.
     env: 'DB_PASSWORD'
 
-# serviceAccount:  <-- ¡NO INCLUYAS ESTA LÍNEA si usas la cuenta predeterminada!
+# serviceAccount:  <-- Sin serviceAccount si usas la predeterminada.
 logsBucket: 'gs://y-sistem_cloudbuild'
 
 options:
-    logging: CLOUD_LOGGING_ONLY #Opcional, pero recomendado
+    logging: LOGGING_LEGACY  # Usamos LOGGING_LEGACY en lugar de CLOUD_LOGGING_ONLY
