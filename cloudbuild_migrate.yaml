@@ -21,7 +21,7 @@ steps:
 
 availableSecrets:
   secretManager:
-  - versionName: projects/PROJECT/secrets/DB_PASSWORD_y-system-version-1/versions/1  # Reemplaza PROJECT y la versión.
+  - versionName: projects/y-sistem/secrets/DB_PASSWORD_y-system-version-1/versions/1  # Reemplaza PROJECT y la versión.
     env: 'DB_PASSWORD'
 
 # serviceAccount:  <-- Sin serviceAccount si usas la predeterminada.
