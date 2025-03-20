@@ -26,9 +26,7 @@ steps:
         ls -la /app
         echo "Trying to run alembic:"
         whoami
-        # Usar el NOMBRE DE CONEXIÓN CORRECTO de Cloud SQL para las migraciones.
-        export DATABASE_URL="postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432/ysistemdb"
-        alembic -c alembic.ini upgrade head
+        alembic -c alembic.ini upgrade head  # Simpler now!
         echo "Exit code: $?"
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -45,8 +43,8 @@ steps:
       - '130051245707-compute@developer.gserviceaccount.com'
       - '--port=8080'
       - '--vpc-connector=projects/y-sistem/locations/us-central1/connectors/conector-erp'
-      - '--add-cloudsql-instances=y-sistem:us-central1:y-system-version-1'  # NOMBRE DE CONEXIÓN CORRECTO
-      - '--set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432/ysistemdb'  # NOMBRE DE CONEXIÓN CORRECTO
+      - '--add-cloudsql-instances=y-sistem:us-central1:y-system-version-1'
+      - '--set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432/ysistemdb'
       - '--allow-unauthenticated'
     id: Deploy
 

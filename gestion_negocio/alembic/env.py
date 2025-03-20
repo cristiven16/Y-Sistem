@@ -49,19 +49,18 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
-    url = get_sync_database_url()
-    connectable = create_engine(url)  # Usamos el pooling por defecto
+    """Run migrations in 'online' mode, using DATABASE_URL from environment."""
+
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL environment variable not set!")
+
+    connectable = create_engine(database_url)
 
     with connectable.connect() as connection:
-        # Configuración directa, sin leer de alembic.ini
         context.configure(
             connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-            # CONFIGURACIÓN EXPLÍCITA DE RUTAS:
-            version_table_schema=config.get_main_option("version_table_schema", "public"),  # O el esquema que uses
-            version_table=config.get_main_option("version_table", "alembic_version"),
-            include_schemas=True, #Asegura que se incluyan todos los esquemas
+            target_metadata=target_metadata
         )
 
         with context.begin_transaction():
