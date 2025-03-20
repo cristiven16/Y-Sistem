@@ -26,7 +26,9 @@ steps:
         ls -la /app
         echo "Trying to run alembic:"
         whoami
-        alembic -c alembic.ini upgrade head  # <-- Ruta relativa correcta.
+        # Use the CORRECT Cloud SQL connection string for migrations.  IMPORTANT!
+        export DATABASE_URL="postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-db/.s.PGSQL.5432/ysistemdb"
+        alembic -c alembic.ini upgrade head
         echo "Exit code: $?"
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
