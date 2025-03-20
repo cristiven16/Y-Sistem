@@ -5,17 +5,18 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-# Ajuste del path para importar tus modelos (CORREGIDO)
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+# --- MODIFICACIÓN CRUCIAL DEL SYS.PATH ---
+# Añadimos /app al sys.path de forma ABSOLUTA y SEGURA.
+# Esto garantiza que las importaciones funcionen correctamente
+# dentro del contenedor de Cloud Build.
 
+sys.path.insert(0, "/app")  # <-- ¡/app, directamente!
 # Importa tus modelos
-from gestion_negocio.models import Base  #  <- Importante: Corregido
+from models import Base  #  <- Importante: Corregido
 
 config = context.config
 
-# --- CAMBIOS IMPORTANTES AQUÍ ---
-# Ya NO leemos alembic.ini para la configuración.  Lo configuramos todo programáticamente.
-# Esto evita cualquier problema con version_path_separator.
+# --- El resto de tu env.py (como lo modificamos antes) ---
 
 # Configuración de logging (opcional, pero recomendable)
 if config.config_file_name is not None:
@@ -61,8 +62,6 @@ def run_migrations_online() -> None:
             version_table_schema=config.get_main_option("version_table_schema", "public"),  # O el esquema que uses
             version_table=config.get_main_option("version_table", "alembic_version"),
             include_schemas=True, #Asegura que se incluyan todos los esquemas
-            # Ya no necesitamos esto, porque lo configuramos directamente:
-            # version_path_separator=os.sep,  <-- ¡ELIMINADO!
         )
 
         with context.begin_transaction():
