@@ -20,16 +20,15 @@ steps:
       - '-c'
       - |
         echo "Original working directory: $(pwd)"
-        cd /app  # <-- CHANGE DIRECTORY TO /app
+        cd /app
         echo "New working directory: $(pwd)"
         echo "Files in /app:"
         ls -la /app
         echo "Trying to run alembic:"
-        whoami  # <-- Check the current user
-        su - root # <-- switch to root user
-        whoami # <-- Check user after switch.
-        alembic -c alembic.ini upgrade head  # <-- Now use relative path
+        whoami  # <-- Verifica el usuario antes de Alembic
+        alembic -c alembic.ini upgrade head
         echo "Exit code: $?"
+    # IMPORTANTE:  NO uses 'su' aquí.  Ejecutamos como root por defecto en este paso.
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
