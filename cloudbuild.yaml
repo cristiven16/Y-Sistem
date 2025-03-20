@@ -5,7 +5,7 @@ steps:
       - 'build'
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
-      - './gestion_negocio'
+      - './gestion_negocio'  # <-- ¡Importante!  Especifica el directorio del Dockerfile.
 
   - name: 'gcr.io/cloud-builders/docker'
     id: Push
@@ -20,15 +20,15 @@ steps:
       - '-c'
       - |
         echo "Original working directory: $(pwd)"
-        cd /app
+        cd /app  # <-- ¡Importante!  Ir al directorio de trabajo correcto.
         echo "New working directory: $(pwd)"
         echo "Files in /app:"
-        ls -la /app
+        ls -la /app  # <-- Lista los archivos para verificar.
         echo "Trying to run alembic:"
-        whoami  # <-- Verifica el usuario antes de Alembic
-        alembic -c alembic.ini upgrade head
+        whoami        
+        alembic -c alembic.ini upgrade head # <-- Usar la ruta RELATIVA correcta para alembic.ini
         echo "Exit code: $?"
-    # IMPORTANTE:  NO uses 'su' aquí.  Ejecutamos como root por defecto en este paso.
+    # No se necesita 'su', ejecutamos como root por defecto en este paso.
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -45,7 +45,7 @@ steps:
       - '--port=8080'
       - '--vpc-connector=projects/y-sistem/locations/us-central1/connectors/conector-erp'
       - '--add-cloudsql-instances=y-sistem:us-central1:y-system-db'
-      - '--set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-db/.s.PGSQL.5432/ysistemdb'
+      - '--set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-db/.s.PGSQL.5432/ysistemdb'  # <-- Formato correcto de la URL.
       - '--allow-unauthenticated'
     id: Deploy
 
