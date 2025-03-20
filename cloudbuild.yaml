@@ -26,8 +26,10 @@ steps:
         ls -la /app
         echo "Trying to run alembic:"
         whoami
-        alembic -c alembic.ini upgrade head  # Simpler now!
+        alembic -c alembic.ini upgrade head
         echo "Exit code: $?"
+    env: # <--- ADD THIS SECTION
+      - 'DATABASE_URL=postgresql+pg8000://postgres:postgres@/ysistemdb?unix_sock=/cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
