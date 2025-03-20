@@ -10,12 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     curl -o /app/cloud_sql_proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.15.1/cloud-sql-proxy.linux.amd64 && \
     chmod +x /app/cloud_sql_proxy
 
-#Ya no es necesario instalar alembic aqui.
-#RUN pip install alembic
-#RUN alembic --help
+#Se agrega la instalacion de alembic
+RUN pip install alembic
+RUN alembic --help
 
-#Se vuelve a poner el USER
 RUN adduser --disabled-password --gecos "" fastapiuser
+#Se comenta temporalmente, para realizar las migraciones como root
 USER fastapiuser
 
 COPY . .
