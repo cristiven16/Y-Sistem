@@ -25,6 +25,9 @@ steps:
         echo "Files in /app:"
         ls -la /app
         echo "Trying to run alembic:"
+        whoami  # <-- Check the current user
+        su - root # <-- switch to root user
+        whoami # <-- Check user after switch.
         alembic -c alembic.ini upgrade head  # <-- Now use relative path
         echo "Exit code: $?"
 
