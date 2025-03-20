@@ -5,12 +5,6 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-# No necesitas cargar dotenv en Cloud Run/Cloud Build, usa variables de entorno directamente
-# if os.getenv("GOOGLE_CLOUD_PROJECT") is None:
-#     from dotenv import load_dotenv
-#     load_dotenv()
-
-
 # Ajuste del path para importar tus modelos (CORREGIDO)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))  # Añade la raíz del proyecto al path
 
