@@ -30,7 +30,7 @@ steps:
           --image us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA \
           --region us-central1 \
           --set-env-vars DATABASE_URL='postgresql+pg8000://postgres:postgres@/ysistemdb?unix_sock=/cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432' \
-          --add-cloudsql-instances y-sistem:us-central1:y-system-version-1 \
+          --set-cloudsql-instances y-sistem:us-central1:y-system-version-1 \
           --service-account 130051245707-compute@developer.gserviceaccount.com \
           --command 'alembic' \
           --args 'upgrade,head'
