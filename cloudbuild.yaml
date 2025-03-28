@@ -1,56 +1,55 @@
 steps:
-  # 1) Construir la imagen
+  # 1) Build la imagen
   - name: 'gcr.io/cloud-builders/docker'
-    id: Build
+    id: 'Build'
     args:
       - build
       - -t
       - us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA
       - ./gestion_negocio
 
-  # 2) Hacer push de la imagen
+  # 2) Push
   - name: 'gcr.io/cloud-builders/docker'
-    id: Push
+    id: 'Push'
     args:
       - push
       - us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA
 
-  # 3) Lanzar el Cloud SQL Proxy en segundo plano
-  - name: 'gcr.io/cloudsql-docker/gce-proxy:1.28.1'  
-    id: 'Start Cloud SQL proxy'
-    entrypoint: '/cloud_sql_proxy'
-    args:
-      - '-dir=/cloudsql'
-      - '-instances=$PROJECT_ID:us-central1:y-system-version-1'
-      # si tu instancia es "y-sistem:us-central1:y-system-version-1", ajústalo
-    waitFor: ['-']            # No esperes a nadie antes; corre de inmediato
-    background: true          # se queda corriendo en segundo plano
-
-  # 4) Ejecutar migraciones usando la imagen que construiste
-  - name: 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA'
-    id: Migrate
-    entrypoint: bash
-    waitFor: ["Start Cloud SQL proxy"]   # IMPORTANTE: que se lance el proxy primero
+  # 3) Crear o actualizar el Job "db-migrations"
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Create-Job'
+    entrypoint: 'bash'
     args:
       - '-c'
       - |
-        # Asegurarnos de que existe la carpeta /cloudsql/y-sistem:us-central1:y-system-version-1 
-        # Normalmente el proxy crea /cloudsql/<instancia>/.s.PGSQL.5432
-        # Esperamos unos segundos para que arranque
-        sleep 5
-        echo "Ejecutando 'alembic upgrade head'..."
-        
-        # Establecer la variable de entorno a la ruta de socket que proxy expone:
-        export DATABASE_URL='postgresql+pg8000://postgres:postgres@/ysistemdb?unix_sock=/cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432'
-        
-        cd /app
-        alembic upgrade head
-        echo "Alembic terminado con código $? (0=OK)"
+        # Borramos si existe, para recrearlo limpio:
+        gcloud run jobs delete db-migrations --region=us-central1 --quiet || true
 
-  # 5) Deploy a Cloud Run
+        # Creamos el Job
+        gcloud run jobs create db-migrations \
+          --image us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA \
+          --region us-central1 \
+          --set-env-vars DATABASE_URL='postgresql+pg8000://postgres:postgres@/ysistemdb?unix_sock=/cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432' \
+          --add-cloudsql-instances y-sistem:us-central1:y-system-version-1 \
+          --service-account 130051245707-compute@developer.gserviceaccount.com \
+          --command 'alembic' \
+          --args 'upgrade,head'
+
+  # 4) Ejecutar el Job
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Execute-Job'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Ejecutando migraciones..."
+        gcloud run jobs execute db-migrations --region=us-central1 --wait
+        echo "¡Migraciones completadas!"
+
+  # 5) Deploy del servicio
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy-Service'
     entrypoint: gcloud
-    id: Deploy
     args:
       - run
       - deploy
@@ -64,3 +63,10 @@ steps:
       - --add-cloudsql-instances=y-sistem:us-central1:y-system-version-1
       - --set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432/ysistemdb
       - --allow-unauthenticated
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  # Esto para que recoja COMMIT_SHA si gustas
+  _COMMIT_SHA: $COMMIT_SHA
