@@ -8,7 +8,7 @@ steps:
       - us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA
       - ./gestion_negocio
 
-  # 2) Push
+  # 2) Push al registry
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push'
     args:
@@ -22,14 +22,15 @@ steps:
     args:
       - '-c'
       - |
-        # Borramos si existe, para recrearlo limpio:
+        # Borramos si existe, para recrearlo limpio
         gcloud run jobs delete db-migrations --region=us-central1 --quiet || true
 
-        # Creamos el Job
+        # Creamos el Job (migraciones)
         gcloud run jobs create db-migrations \
           --image us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/y-sistem/y-system-erp:$COMMIT_SHA \
           --region us-central1 \
-          --set-env-vars DATABASE_URL='postgresql+pg8000://postgres:postgres@/ysistemdb?unix_sock=/cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432' \
+          --set-env-vars CLOUD_SQL_CONNECTION_NAME=y-sistem:us-central1:y-system-version-1,DB_USER=postgres,DB_NAME=ysistemdb \
+          --set-secrets DB_PASSWORD=DB_PASSWORD_y-system-version-1:latest \
           --set-cloudsql-instances y-sistem:us-central1:y-system-version-1 \
           --service-account 130051245707-compute@developer.gserviceaccount.com \
           --command 'alembic' \
@@ -59,14 +60,14 @@ steps:
       - --region=us-central1
       - --service-account=130051245707-compute@developer.gserviceaccount.com
       - --port=8080
-      - --vpc-connector=projects/y-sistem/locations/us-central1/connectors/conector-erp
+      - --vpc-connector=projects/y-sistem/locations/us-central1/connectors/my-sql-connector
       - --add-cloudsql-instances=y-sistem:us-central1:y-system-version-1
-      - --set-env-vars=DATABASE_URL=postgresql+asyncpg://postgres:postgres@unix:///cloudsql/y-sistem:us-central1:y-system-version-1/.s.PGSQL.5432/ysistemdb
+      - --set-env-vars=CLOUD_SQL_CONNECTION_NAME=y-sistem:us-central1:y-system-version-1,DB_USER=postgres,DB_NAME=ysistemdb
+      - --set-secrets=DB_PASSWORD=DB_PASSWORD_y-system-version-1:latest
       - --allow-unauthenticated
 
 options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  # Esto para que recoja COMMIT_SHA si gustas
   _COMMIT_SHA: $COMMIT_SHA
